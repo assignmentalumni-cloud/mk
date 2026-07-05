@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --neon-pink: #FF007A;
+    --cosmic-midnight: #060913;
+    --ivory: #F8FAFC;
+  }
+
+  * {
+    @apply transition-colors duration-300;
+  }
+
+  body {
+    @apply antialiased;
+  }
+
+  .dark body {
+    background: linear-gradient(180deg, #060913 0%, #0a0f1a 50%, #060913 100%);
+  }
+
+  .light body {
+    background: linear-gradient(180deg, #F8FAFC 0%, #ffffff 100%);
+  }
+}
+
+@layer components {
+  .glass-dark {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
+  }
+
+  .glass-light {
+    @apply bg-white/70 backdrop-blur-md border border-pink-200/30 rounded-2xl;
+  }
+
+  .btn-neon-dark {
+    @apply bg-neon-pink text-white font-semibold px-6 py-3 rounded-xl;
+    @apply shadow-neon-pink hover:shadow-neon-pink-lg;
+    @apply transition-all duration-300 hover:scale-105;
+  }
+
+  .btn-neon-light {
+    @apply bg-neon-pink text-white font-semibold px-6 py-3 rounded-xl;
+    @apply shadow-lg hover:shadow-xl;
+    @apply transition-all duration-300 hover:scale-105;
+  }
+
+  .text-gradient-neon {
+    @apply bg-gradient-to-r from-neon-pink to-neon-pink-bright bg-clip-text text-transparent;
+  }
+}
+
+@layer utilities {
+  .glow-text {
+    text-shadow: 0 0 10px rgba(255, 0, 122, 0.5), 0 0 20px rgba(255, 0, 122, 0.3);
+  }
+
+  .animate-float-slow {
+    animation: float 8s ease-in-out infinite;
+  }
+
+  .bg-glass-gradient {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+  }
+
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out forwards;
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+}
