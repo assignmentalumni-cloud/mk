@@ -94,6 +94,13 @@ export function Layout() {
                 <Mail className="w-3.5 h-3.5" />
                 <span>Support: {SUPPORT_EMAIL}</span>
               </a>
+              <a
+            href="/announcement"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all text-gray-500 hover:text-gray-700"
+          >
+            <span>📢</span>
+            <span>Announcements</span>
+          </a>
 
               <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
                 <div className={`w-6 h-6 rounded-full ${isDark ? 'bg-neon-pink/20' : 'bg-neon-pink/10'} flex items-center justify-center`}>
