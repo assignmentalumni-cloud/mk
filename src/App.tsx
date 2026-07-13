@@ -79,6 +79,11 @@ function AppRoutes() {
             <SupportPage />
           </ProtectedRoute>
         } />
+        <Route path="/announcement" element={
+            <ProtectedRoute>
+              <Announcement />
+            </ProtectedRoute>
+          } />
       </Route>
 
       <Route path="/" element={<SignInPage />} />
