@@ -10,7 +10,7 @@ import { WorkspacePage } from './pages/WorkspacePage';
 import { AdminPage } from './pages/AdminPage';
 import { SupportPage } from './pages/SupportPage';
 import { Notification } from './components/Notification';
-import Announcement from './pages/Announcement';
+import Announcement from './pages/announcement';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useGlobalState();
