@@ -718,40 +718,43 @@ export function AdminPanel() {
                               BEP-20
                             </span>
                           </td>
-                          <td className="px-4 py-4">
-                            <span className="text-base font-bold text-neon-pink">${req.amount.toFixed(2)}</span>
-                          </td>
-                          <td className="px-4 py-4">
-                            {referralsMet ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500/20 text-green-400">
-                                <CheckCircle className="w-3 h-3" /> 2/2 Verified
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400">
-                                <Lock className="w-3 h-3" /> {user?.currentCycleReferrals ?? 0}/2
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => act(req.requestId, () => processCashout(req.requestId))}
-                                disabled={!referralsMet || isBusy}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${isDark ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/20' : 'bg-green-50 hover:bg-green-100 text-green-700 border border-green-200'} disabled:opacity-50 disabled:cursor-not-allowed`}
-                              >
-                                {isBusy ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
-                                Mark Transfer Settled
-                              </button>
-                              <button
-                                onClick={() => act(req.requestId + '_rej', () => rejectCashout(req.requestId))}
-                                disabled={isBusy}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${isDark ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/20' : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'} disabled:opacity-50 disabled:cursor-not-allowed`}
-                              >
-                                <XCircle className="w-3 h-3" /> Reject
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                   ${req.amount.toFixed(2)}
+    
+    
+      {(() => {
+        const completedCount = user?.completedWithdrawalsCount ?? 0;
+        const required = completedCount === 0 ? 2 : 1;
+        const isUnlocked = (user?.currentCycleReferrals ?? 0) >= required;
+
+        return isUnlocked ? (
+          
+             {user?.currentCycleReferrals ?? 0}/{required} Verified
+          
+        ) : (
+          
+             {user?.currentCycleReferrals ?? 0}/{required}
+          
+        );
+      })()}
+    
+    
+      
+         act(req.requestId, () => processCashout(req.requestId))}
+          disabled={!((user?.currentCycleReferrals ?? 0) >= (user?.completedWithdrawalsCount === 0 ? 2 : 1)) || isBusy}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            isDark ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/20' : 'bg-green-100 hover:bg-green-200 text-green-800'
+          }`}
+        >
+          {isBusy ?  : }
+          Mark Transfer Settled
+        
+         act(req.requestId + '_rej', () => rejectCashout(req.requestId))}
+          disabled={isBusy}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            isDark ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/20' : 'bg-red-100 hover:bg-red-200 text-red-800'
+          }`}
+        >
+           Reject
                       );
                     })}
                   </tbody>
