@@ -10,7 +10,6 @@ import { WorkspacePage } from './pages/WorkspacePage';
 import { AdminPage } from './pages/AdminPage';
 import { SupportPage } from './pages/SupportPage';
 import { Notification } from './components/Notification';
-import Announcement from './pages/announcement';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useGlobalState();
@@ -79,11 +78,6 @@ function AppRoutes() {
             <SupportPage />
           </ProtectedRoute>
         } />
-        <Route path="/announcement" element={
-            <ProtectedRoute>
-              <Announcement />
-            </ProtectedRoute>
-          } />
       </Route>
 
       <Route path="/" element={<SignInPage />} />
