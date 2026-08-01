@@ -693,7 +693,9 @@ export function AdminPanel() {
                   <tbody>
                     {pendingCashouts.map((req) => {
                       const user = getUserById(req.userId);
-                      const referralsMet = (user?.currentCycleReferrals ?? 0) >= 2;
+                      const completedCount = user?.lifetimeWithdrawals ?? 0;
+                      const requiredReferrals = completedCount === 0 ? 2 : 1;
+                      const referralsMet = (user?.currentCycleReferrals ?? 0) >= requiredReferrals;
                       const isBusy = processing === req.requestId;
                       return (
                         <tr key={req.requestId} className={`border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
@@ -724,11 +726,11 @@ export function AdminPanel() {
                           <td className="px-4 py-4">
                             {referralsMet ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500/20 text-green-400">
-                                <CheckCircle className="w-3 h-3" /> 2/2 Verified
+                                <CheckCircle className="w-3 h-3" /> {user?.currentCycleReferrals ?? 0}/{requiredReferrals} Verified
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400">
-                                <Lock className="w-3 h-3" /> {user?.currentCycleReferrals ?? 0}/2
+                                <Lock className="w-3 h-3" /> {user?.currentCycleReferrals ?? 0}/{requiredReferrals}
                               </span>
                             )}
                           </td>

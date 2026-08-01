@@ -1,10 +1,17 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Moon, Sun, Power, User, Shield, Mail } from 'lucide-react';
+import { Moon, Sun, Power, User, Shield, Mail, Home, BookOpen, Users, Settings } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
 import { CrescentMoon } from './CrescentMoon';
 
 const SUPPORT_EMAIL = 'Assignmentalumni@gmail.com';
+
+const NAV_ITEMS = [
+  { path: '/home', label: 'Home', icon: Home },
+  { path: '/workspace', label: 'Working', icon: BookOpen },
+  { path: '/referral', label: 'Referral', icon: Users },
+  { path: '/settings', label: 'Settings', icon: Settings },
+];
 
 export function Layout() {
   const { isDark, toggleTheme } = useTheme();
@@ -27,8 +34,10 @@ export function Layout() {
 
   const handleViewSwitch = (mode: 'user' | 'admin') => {
     setViewMode(mode);
-    navigate(mode === 'admin' ? '/admin' : '/dashboard');
+    navigate(mode === 'admin' ? '/admin' : '/home');
   };
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <>
@@ -37,9 +46,9 @@ export function Layout() {
         <div className="max-w-6xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <a href="/dashboard" className="flex items-center gap-2">
+              <a href="/home" className="flex items-center gap-2">
                 <div className={`w-9 h-9 rounded-xl ${isDark ? 'bg-neon-pink/20' : 'bg-neon-pink/10'} flex items-center justify-center`}>
-                  <span className={`text-lg font-bold ${isDark ? 'text-neon-pink' : 'text-neon-pink'}`}>A</span>
+                  <span className={`text-lg font-bold text-neon-pink`}>A</span>
                 </div>
                 <div className="flex items-center gap-1 font-semibold text-lg">
                   <span className={isDark ? 'text-white' : 'text-gray-900'}>assignment</span>
@@ -47,7 +56,33 @@ export function Layout() {
                 </div>
               </a>
 
-              {isAdmin && <div className={`hidden sm:flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100 border border-gray-200'}`}>
+              {/* Desktop tab nav */}
+              <div className={`hidden md:flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100 border border-gray-200'}`}>
+                {NAV_ITEMS.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        active
+                          ? isDark
+                            ? 'bg-neon-pink/20 text-neon-pink'
+                            : 'bg-neon-pink/10 text-neon-pink'
+                          : isDark
+                          ? 'text-gray-400 hover:text-gray-300'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {isAdmin && <div className={`hidden lg:flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100 border border-gray-200'}`}>
                 <button
                   onClick={() => handleViewSwitch('user')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -82,10 +117,9 @@ export function Layout() {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Support Email Link */}
               <a
                 href={`mailto:${SUPPORT_EMAIL}?subject=AssignmentAlumni Support Request`}
-                className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                className={`hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                   isDark
                     ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20'
                     : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'
@@ -133,6 +167,7 @@ export function Layout() {
             </div>
           </div>
 
+          {/* Mobile admin toggle */}
           {isAdmin && <div className={`sm:hidden flex items-center justify-center mt-3 p-1 rounded-xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100 border border-gray-200'}`}>
             <button
               onClick={() => handleViewSwitch('user')}
@@ -167,7 +202,35 @@ export function Layout() {
           </div>}
         </div>
       </nav>
+
       <Outlet />
+
+      {/* Mobile bottom navigation */}
+      <nav className={`fixed bottom-0 left-0 right-0 z-50 md:hidden ${isDark ? 'bg-cosmic-midnight/95 backdrop-blur-xl border-t border-white/10' : 'bg-white/95 backdrop-blur-xl border-t border-gray-200'}`}>
+        <div className="grid grid-cols-4 max-w-md mx-auto">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={`flex flex-col items-center justify-center gap-1 py-3 transition-all ${
+                  active
+                    ? 'text-neon-pink'
+                    : isDark
+                    ? 'text-gray-500'
+                    : 'text-gray-400'
+                }`}
+              >
+                <Icon className={`w-5 h-5 transition-transform ${active ? 'scale-110' : ''}`} />
+                <span className="text-[10px] font-medium">{item.label}</span>
+                {active && <div className="absolute bottom-0 w-8 h-0.5 rounded-full bg-neon-pink" />}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </>
   );
 }

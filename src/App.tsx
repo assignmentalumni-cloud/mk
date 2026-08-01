@@ -5,10 +5,11 @@ import { GlobalProvider, useGlobalState, ADMIN_USERNAME } from './hooks/useGloba
 import { Layout } from './components/Layout';
 import { SignInPage } from './pages/SignInPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { DashboardPage } from './pages/DashboardPage';
+import { HomePage } from './pages/HomePage';
 import { WorkspacePage } from './pages/WorkspacePage';
+import { ReferralPage } from './pages/ReferralPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { AdminPage } from './pages/AdminPage';
-import { SupportPage } from './pages/SupportPage';
 import { Notification } from './components/Notification';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -32,7 +33,7 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
     if (!isAdmin) {
       setShowAlert(true);
       const t = setTimeout(() => {
-        navigate('/dashboard', { replace: true });
+        navigate('/home', { replace: true });
       }, 1800);
       return () => clearTimeout(t);
     }
@@ -58,9 +59,14 @@ function AppRoutes() {
   return (
     <Routes>
       <Route element={<Layout />}>
+        <Route path="/home" element={
+          <ProtectedRoute>
+            <HomePage />
+          </ProtectedRoute>
+        } />
         <Route path="/dashboard" element={
           <ProtectedRoute>
-            <DashboardPage />
+            <HomePage />
           </ProtectedRoute>
         } />
         <Route path="/workspace" element={
@@ -68,15 +74,20 @@ function AppRoutes() {
             <WorkspacePage />
           </ProtectedRoute>
         } />
+        <Route path="/referral" element={
+          <ProtectedRoute>
+            <ReferralPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        } />
         <Route path="/admin" element={
           <AdminGuard>
             <AdminPage />
           </AdminGuard>
-        } />
-        <Route path="/support" element={
-          <ProtectedRoute>
-            <SupportPage />
-          </ProtectedRoute>
         } />
       </Route>
 

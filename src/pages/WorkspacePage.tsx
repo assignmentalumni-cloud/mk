@@ -74,8 +74,8 @@ export function WorkspacePage() {
           <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             You must fund an escrow tier before accessing the workspace.
           </p>
-          <button onClick={() => navigate('/dashboard')} className={isDark ? 'btn-neon-dark' : 'btn-neon-light'}>
-            Return to Dashboard
+          <button onClick={() => navigate('/home')} className={isDark ? 'btn-neon-dark' : 'btn-neon-light'}>
+            Return to Home
           </button>
         </div>
       </div>
@@ -189,7 +189,7 @@ export function WorkspacePage() {
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/home')}
             className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition-colors`}
           >
             <ChevronLeft className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />

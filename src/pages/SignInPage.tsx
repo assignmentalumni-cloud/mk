@@ -33,7 +33,7 @@ export function SignInPage() {
     const result = await login(username, password);
     setIsSubmitting(false);
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/home');
     } else {
       setError(result.error || 'Login failed');
     }
