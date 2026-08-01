@@ -16,6 +16,7 @@ export interface User {
   currentCycleReferrals: number; // Active referrals who completed deposit
   completedTopicIds: string[];
   activationStatus: ActivationStatus;
+  avatarUrl: string | null;
   lastSubmissionsLedger: string[]; // ISO timestamps of submissions in last 24h
   invitedBy: string | null; // Username of referrer (null if no referral)
   lifetimeWithdrawals: number; // Total successful withdrawals count
@@ -45,6 +46,7 @@ export interface Submission {
   submissionType: SubmissionType;
   estimatedWordCount: number | null;
   charCount: number | null;
+  rejectionFeedback: string | null;
 }
 
 export interface PendingDeposit {

@@ -207,6 +207,7 @@ export function AdminPanel() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [lightboxTitle, setLightboxTitle] = useState<string | undefined>();
+  const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
 
   const glass = isDark ? 'glass-dark' : 'glass-light';
 
@@ -422,13 +423,38 @@ export function AdminPanel() {
                         {isBusy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                         Approve &amp; Credit ${sub.calculatedPayout.toFixed(2)}
                       </button>
-                      <button
-                        onClick={() => act(sub.submissionId, () => rejectSubmission(sub.submissionId))}
-                        disabled={isBusy}
-                        className={`px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${isDark ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/20' : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'} disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <XCircle className="w-4 h-4" />Reject Task
-                      </button>
+                    </div>
+
+                    {/* Rejection feedback */}
+                    <div className={`mt-3 pt-3 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+                      <p className={`text-xs font-semibold mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Rejection Note (sent to user)
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={rejectionNotes[sub.submissionId] ?? ''}
+                          onChange={(e) => setRejectionNotes((prev) => ({ ...prev, [sub.submissionId]: e.target.value }))}
+                          placeholder="e.g. Rejected: Copy-pasted assignment"
+                          className={`flex-1 px-3 py-2 rounded-lg text-xs outline-none transition-all ${
+                            isDark
+                              ? 'bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:border-red-500/40'
+                              : 'bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-red-300'
+                          }`}
+                        />
+                        <button
+                          onClick={() => {
+                            const note = rejectionNotes[sub.submissionId]?.trim();
+                            act(sub.submissionId, () => rejectSubmission(sub.submissionId, note || 'Submission rejected by admin.'));
+                            setRejectionNotes((prev) => { const n = { ...prev }; delete n[sub.submissionId]; return n; });
+                          }}
+                          disabled={isBusy}
+                          className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${isDark ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/20' : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {isBusy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                          Reject &amp; Send
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

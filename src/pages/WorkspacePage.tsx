@@ -14,6 +14,8 @@ import {
   FileCheck,
   PenLine,
   Camera,
+  XCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
@@ -45,6 +47,8 @@ export function WorkspacePage() {
     submitAssignment,
     refreshAssignments,
     taskRestrictionStatus,
+    allSubmissions,
+    currentUser,
   } = useGlobalState();
 
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -250,6 +254,40 @@ export function WorkspacePage() {
             <p className={`mt-2 text-sm font-medium text-neon-pink`}>
               Potential earnings: ${totalDailyPayout.toFixed(2)}
             </p>
+          </div>
+        )}
+
+        {/* Rejected submissions feedback */}
+        {isProfileActive && currentUser && allSubmissions.filter((s) => s.userId === currentUser.id && s.status === 'Rejected').length > 0 && (
+          <div className="mb-6 space-y-3">
+            {allSubmissions
+              .filter((s) => s.userId === currentUser.id && s.status === 'Rejected')
+              .map((sub) => (
+                <div key={sub.submissionId} className={`rounded-xl p-4 border-2 ${isDark ? 'bg-red-500/10 border-red-500/40' : 'bg-red-50 border-red-200'}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg flex-shrink-0 ${isDark ? 'bg-red-500/20' : 'bg-red-100'}`}>
+                      <XCircle className="w-5 h-5 text-red-400" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-red-400">Submission Rejected</p>
+                      <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Topic: {sub.topicTitle}
+                      </p>
+                      {sub.rejectionFeedback && (
+                        <div className={`mt-2 p-3 rounded-lg flex items-start gap-2 ${isDark ? 'bg-white/5' : 'bg-white'}`}>
+                          <MessageSquare className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                          <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                            {sub.rejectionFeedback}
+                          </p>
+                        </div>
+                      )}
+                      <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                        This assignment is now available for resubmission.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
           </div>
         )}
 

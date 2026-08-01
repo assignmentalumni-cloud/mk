@@ -63,6 +63,7 @@ interface DbSubmission {
   submission_type: string;
   estimated_word_count: number | null;
   char_count: number | null;
+  rejection_feedback: string | null;
 }
 
 interface DbCashout {
@@ -108,6 +109,7 @@ function mapUser(row: DbUser): User {
     currentCycleReferrals: row.current_cycle_referrals,
     completedTopicIds: Array.isArray(row.completed_topic_ids) ? row.completed_topic_ids : [],
     activationStatus: (row.activation_status as ActivationStatus) ?? null,
+    avatarUrl: row.avatar_url ?? null,
     lastSubmissionsLedger: Array.isArray(row.last_submissions_ledger) ? row.last_submissions_ledger : [],
     invitedBy: row.invited_by ?? null,
     lifetimeWithdrawals: row.lifetime_withdrawals ?? 0,
@@ -131,6 +133,7 @@ function mapSubmission(row: DbSubmission): Submission {
     submissionType: (row.submission_type as Submission['submissionType']) || 'local_text',
     estimatedWordCount: row.estimated_word_count ?? null,
     charCount: row.char_count ?? null,
+    rejectionFeedback: row.rejection_feedback ?? null,
   };
 }
 
@@ -202,7 +205,7 @@ interface GlobalContextType extends AppState {
     charCount: number | null
   ): Promise<void>;
   approveSubmission(submissionId: string): Promise<void>;
-  rejectSubmission(submissionId: string): Promise<void>;
+  rejectSubmission(submissionId: string, feedback?: string): Promise<void>;
   requestCashout(
     amount: number,
     beneficiaryName: string,
@@ -214,6 +217,7 @@ interface GlobalContextType extends AppState {
   addReferral(userId?: string): Promise<void>;
   forceSetTier(userId: string, tier: AccountTier): Promise<void>;
   setViewMode(mode: 'user' | 'admin'): void;
+  uploadAvatar(avatarUrl: string): Promise<void>;
   getUserById(userId: string): User | undefined;
   getPendingReferrals(username: string): { username: string; status: 'pending' | 'active'; createdAt: string }[];
   getActiveReferrals(username: string): { username: string; status: 'pending' | 'active'; createdAt: string }[];
@@ -357,7 +361,8 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       id, username, password, full_name: fullName, email,
       deposit_tier: 0, available_earnings: 0,
       current_cycle_referrals: 0, completed_topic_ids: [],
-      activation_status: null, last_submissions_ledger: [],
+      avatar_url: null,
+    activation_status: null, last_submissions_ledger: [],
       invited_by: invitedBy, lifetime_withdrawals: 0,
     }]);
     if (error) return { success: false, error: 'Failed to create account.' };
@@ -561,6 +566,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       submissionType,
       estimatedWordCount,
       charCount,
+      rejectionFeedback: null,
     }, ...prev]);
     setAssignments((prev) =>
       prev.map((a) => (a.id === assignmentId ? { ...a, status: 'Submitted_Pending' as const } : a))
@@ -592,13 +598,24 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     ));
   }, [submissions, users]);
 
-  const rejectSubmission = useCallback(async (submissionId: string) => {
-    const { error } = await supabase.from('submissions').update({ status: 'Rejected' }).eq('id', submissionId);
+  const rejectSubmission = useCallback(async (submissionId: string, feedback?: string) => {
+    const sub = submissions.find((s) => s.submissionId === submissionId);
+    const { error } = await supabase.from('submissions')
+      .update({ status: 'Rejected', rejection_feedback: feedback ?? null })
+      .eq('id', submissionId);
     if (error) { console.error(error); return; }
     setSubmissions((prev) => prev.map((s) =>
-      s.submissionId === submissionId ? { ...s, status: 'Rejected' as const } : s
+      s.submissionId === submissionId
+        ? { ...s, status: 'Rejected' as const, rejectionFeedback: feedback ?? null }
+        : s
     ));
-  }, []);
+    // Revert assignment to Available so user can resubmit
+    if (sub) {
+      setAssignments((prev) => prev.map((a) =>
+        a.topicId === sub.topicId ? { ...a, status: 'Available' as const } : a
+      ));
+    }
+  }, [submissions]);
 
   // ── Cashout ───────────────────────────────────────────────────────────────────
 
@@ -752,6 +769,17 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
 
   const setViewMode = useCallback((mode: 'user' | 'admin') => { setViewModeState(mode); }, []);
 
+  const uploadAvatar = useCallback(async (avatarUrl: string): Promise<void> => {
+    if (!currentUser) return;
+    const { error } = await supabase.from('users')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', currentUser.id);
+    if (error) { console.error(error); return; }
+    setUsers((prev) => prev.map((u) =>
+      u.id === currentUser.id ? { ...u, avatarUrl } : u
+    ));
+  }, [currentUser]);
+
   // ── Context value ─────────────────────────────────────────────────────────────
 
   const value: GlobalContextType = {
@@ -770,6 +798,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     addReferral, forceSetTier,
     setViewMode, getUserById, getPendingReferrals, getActiveReferrals,
     refreshCurrentUser, refreshAssignments, refreshAll,
+    uploadAvatar,
   };
 
   if (isLoading) return null;
