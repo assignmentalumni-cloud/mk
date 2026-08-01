@@ -15,13 +15,15 @@ import type {
   AccountTier,
   Assignment,
   ActivationStatus,
+  LevelClaim,
+  LevelClaimStatus,
 } from '../types';
+import { TIER_CONFIG, REFERRAL_LEVELS } from '../types';
 import { supabase } from '../lib/supabase';
 import {
   generateUniqueSubId,
   generateUniqueRequestId,
   generateUniqueAssignmentId,
-  ASSIGNMENT_TITLES,
   ACADEMIC_TOPICS,
 } from '../utils/dataStore';
 import { getTopicsForUser } from '../data/academicTopics';
@@ -42,6 +44,7 @@ interface DbUser {
   current_cycle_referrals: number;
   completed_topic_ids: string[];
   activation_status: string | null;
+  avatar_url: string | null;
   last_submissions_ledger: string[];
   invited_by: string | null;
   lifetime_withdrawals: number;
@@ -93,6 +96,42 @@ interface DbDeposit {
   status: string;
   submitted_at: string;
   reviewed_at: string | null;
+}
+
+interface DbLevelClaim {
+  id: string;
+  user_id: string;
+  username: string;
+  level: number;
+  reward_amount: number;
+  status: string;
+  rejection_note: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getBaseRate(tier: AccountTier): number {
+  if (tier === 1) return TIER_CONFIG[1].baseRate;
+  if (tier === 2) return TIER_CONFIG[2].baseRate;
+  if (tier === 3) return TIER_CONFIG[3].baseRate;
+  return 0;
+}
+
+function getDailyLimit(tier: AccountTier): number {
+  if (tier === 1) return TIER_CONFIG[1].dailyLimit;
+  if (tier === 2) return TIER_CONFIG[2].dailyLimit;
+  if (tier === 3) return TIER_CONFIG[3].dailyLimit;
+  return 0;
+}
+
+function getApprovedLevelBoost(approvedLevels: number): number {
+  return approvedLevels * 0.005;
+}
+
+function applyBoost(baseRate: number, approvedLevels: number): number {
+  return baseRate * (1 + getApprovedLevelBoost(approvedLevels));
 }
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
@@ -158,14 +197,28 @@ function mapDeposit(row: DbDeposit): PendingDeposit {
     id: row.id,
     userId: row.user_id,
     username: row.username,
-    chosenTier: row.chosen_tier as 1 | 2,
+    chosenTier: row.chosen_tier as 1 | 2 | 3,
     senderEmail: row.sender_email,
-    senderWalletAddress: row.sender_wallet_address || row.sender_name, // fallback for old records
+    senderWalletAddress: row.sender_wallet_address || row.sender_name,
     receiptFilename: row.receipt_filename,
     screenshotUrl: row.screenshot_url ?? null,
     status: row.status as PendingDeposit['status'],
     submittedAt: row.submitted_at,
     reviewedAt: row.reviewed_at ?? undefined,
+  };
+}
+
+function mapLevelClaim(row: DbLevelClaim): LevelClaim {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    username: row.username,
+    level: row.level as 1 | 2 | 3,
+    rewardAmount: Number(row.reward_amount),
+    status: row.status as LevelClaimStatus,
+    rejectionNote: row.rejection_note ?? null,
+    createdAt: row.created_at,
+    reviewedAt: row.reviewed_at ?? null,
   };
 }
 
@@ -180,13 +233,17 @@ interface GlobalContextType extends AppState {
   pendingUserSubmissions: Submission[];
   pendingCashoutRequests: CashoutRequest[];
   allSubmissions: Submission[];
+  levelClaims: LevelClaim[];
+  currentUserLevelClaims: LevelClaim[];
+  approvedLevelCount: number;
+  currentUserBoostPercent: number;
   taskRestrictionStatus: { isLocked: boolean; activeSubmissions: number; maxAllowed: number; oldestSubmissionTime: string | null };
   login(username: string, password: string): Promise<{ success: boolean; error?: string }>;
   signup(fullName: string, username: string, email: string, password: string, invitedBy?: string | null): Promise<{ success: boolean; error?: string }>;
   logout(): void;
   selectTier(tier: AccountTier): Promise<void>;
   submitDepositProof(
-    chosenTier: 1 | 2,
+    chosenTier: 1 | 2 | 3,
     username: string,
     senderEmail: string,
     senderWalletAddress: string,
@@ -224,6 +281,9 @@ interface GlobalContextType extends AppState {
   refreshCurrentUser(): Promise<void>;
   refreshAssignments(): void;
   refreshAll(): Promise<void>;
+  claimLevelReward(level: 1 | 2 | 3): Promise<void>;
+  approveLevelClaim(claimId: string): Promise<void>;
+  rejectLevelClaim(claimId: string, note?: string): Promise<void>;
 }
 
 const GlobalContext = createContext<GlobalContextType | null>(null);
@@ -237,6 +297,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [cashouts, setCashouts] = useState<CashoutRequest[]>([]);
   const [deposits, setDeposits] = useState<PendingDeposit[]>([]);
+  const [levelClaims, setLevelClaims] = useState<LevelClaim[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [viewMode, setViewModeState] = useState<'user' | 'admin'>('user');
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -245,16 +306,18 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   const loadedRef = useRef(false);
 
   const loadAll = useCallback(async () => {
-    const [usersRes, subsRes, cashoutsRes, depositsRes] = await Promise.all([
+    const [usersRes, subsRes, cashoutsRes, depositsRes, claimsRes] = await Promise.all([
       supabase.from('users').select('*'),
       supabase.from('submissions').select('*').order('submitted_at', { ascending: false }),
       supabase.from('cashout_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('pending_deposits').select('*').order('submitted_at', { ascending: false }),
+      supabase.from('referral_level_claims').select('*').order('created_at', { ascending: false }),
     ]);
     if (!usersRes.error) setUsers((usersRes.data as DbUser[]).map(mapUser));
     if (!subsRes.error) setSubmissions((subsRes.data as DbSubmission[]).map(mapSubmission));
     if (!cashoutsRes.error) setCashouts((cashoutsRes.data as DbCashout[]).map(mapCashout));
     if (!depositsRes.error) setDeposits((depositsRes.data as DbDeposit[]).map(mapDeposit));
+    if (!claimsRes.error) setLevelClaims((claimsRes.data as DbLevelClaim[]).map(mapLevelClaim));
   }, []);
 
   useEffect(() => {
@@ -278,6 +341,10 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = currentUser?.username === ADMIN_USERNAME;
   const isProfileActive = currentUser !== null && currentUser.depositTier !== 0;
 
+  const currentUserLevelClaims = levelClaims.filter((c) => c.userId === currentUserId);
+  const approvedLevelCount = currentUserLevelClaims.filter((c) => c.status === 'Approved').length;
+  const currentUserBoostPercent = approvedLevelCount * 0.5;
+
   const pendingUserSubmissions = submissions.filter(
     (s) => s.userId === currentUserId && s.status === 'Submitted_Pending'
   );
@@ -294,7 +361,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     if (!currentUser || currentUser.depositTier === 0) {
       return { isLocked: false, activeSubmissions: 0, maxAllowed: 0, oldestSubmissionTime: null };
     }
-    const maxAllowed = currentUser.depositTier === 2 ? 2 : 1;
+    const maxAllowed = getDailyLimit(currentUser.depositTier);
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const activeTimestamps = (currentUser.lastSubmissionsLedger || [])
@@ -311,20 +378,20 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   // ── Assignments ───────────────────────────────────────────────────────────────
 
   const buildAssignments = useCallback((user: User): Assignment[] => {
-    const payout = 1.7; // Flat $1.70 for both tiers
-    const count = user.depositTier === 2 ? 2 : 1;
+    const baseRate = getBaseRate(user.depositTier);
+    const boostedRate = applyBoost(baseRate, levelClaims.filter((c) => c.userId === user.id && c.status === 'Approved').length);
+    const count = getDailyLimit(user.depositTier);
 
-    // Get deterministic topics for user based on current day
     const todaysTopics = getTopicsForUser(user.id, count);
 
     return todaysTopics.map((title: string) => ({
       id: generateUniqueAssignmentId(),
       topicId: `topic-${String(ACADEMIC_TOPICS.indexOf(title) + 1).padStart(3, '0')}`,
       topicTitle: title,
-      payout,
+      payout: boostedRate,
       status: 'Available' as const,
     }));
-  }, []);
+  }, [levelClaims]);
 
   const refreshAssignments = useCallback(() => {
     if (!currentUser || currentUser.depositTier === 0) { setAssignments([]); return; }
@@ -361,8 +428,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       id, username, password, full_name: fullName, email,
       deposit_tier: 0, available_earnings: 0,
       current_cycle_referrals: 0, completed_topic_ids: [],
-      avatar_url: null,
-    activation_status: null, last_submissions_ledger: [],
+      avatar_url: null, activation_status: null, last_submissions_ledger: [],
       invited_by: invitedBy, lifetime_withdrawals: 0,
     }]);
     if (error) return { success: false, error: 'Failed to create account.' };
@@ -370,7 +436,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       id, username, password, fullName, email,
       depositTier: 0, availableEarnings: 0,
       currentCycleReferrals: 0, completedTopicIds: [],
-      activationStatus: null, lastSubmissionsLedger: [],
+      activationStatus: null, avatarUrl: null, lastSubmissionsLedger: [],
       invitedBy, lifetimeWithdrawals: 0,
       createdAt: new Date().toISOString(),
     }]);
@@ -384,7 +450,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     setAssignments([]);
   }, []);
 
-  // ── Tier (direct admin path only, kept for forceSetTier) ─────────────────────
+  // ── Tier ──────────────────────────────────────────────────────────────────────
 
   const selectTier = useCallback(async (tier: AccountTier) => {
     if (!currentUser) return;
@@ -399,7 +465,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   // ── Deposit proof workflow ────────────────────────────────────────────────────
 
   const submitDepositProof = useCallback(async (
-    chosenTier: 1 | 2,
+    chosenTier: 1 | 2 | 3,
     username: string,
     senderEmail: string,
     senderWalletAddress: string,
@@ -413,7 +479,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
         user_id: currentUser.id,
         username: currentUser.username,
         chosen_tier: chosenTier,
-        sender_name: username, // Store username in sender_name for backwards compatibility
+        sender_name: username,
         sender_email: senderEmail,
         sender_wallet_address: senderWalletAddress,
         receipt_filename: receiptFilename,
@@ -444,7 +510,6 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     const user = users.find((u) => u.id === dep.userId);
     const now = new Date().toISOString();
 
-    // Update deposit and user status
     const [depRes, userRes] = await Promise.all([
       supabase.from('pending_deposits')
         .update({ status: 'Approved', reviewed_at: now })
@@ -456,12 +521,12 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     if (depRes.error) { console.error(depRes.error); return; }
     if (userRes.error) { console.error(userRes.error); return; }
 
-    // Increment referrer's referral count + $5.00 bonus (anti-fraud: only counts on deposit approval)
+    // Increment referrer's referral count + $5.00 bonus
     if (user?.invitedBy) {
       const referrer = users.find((u) => u.username === user.invitedBy);
       if (referrer) {
         const newReferralCount = referrer.currentCycleReferrals + 1;
-        const newEarnings = referrer.availableEarnings + 5.00; // $5.00 referral bonus
+        const newEarnings = referrer.availableEarnings + 5.00;
         const refRes = await supabase.from('users')
           .update({
             current_cycle_referrals: newReferralCount,
@@ -521,8 +586,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   ) => {
     if (!currentUser) return;
 
-    // Anti-cheat: enforce 24-hour rolling window limit
-    const maxAllowed = currentUser.depositTier === 2 ? 2 : 1;
+    const maxAllowed = getDailyLimit(currentUser.depositTier);
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const cleanLedger = (currentUser.lastSubmissionsLedger || []).filter(
@@ -537,7 +601,8 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     const newTimestamp = now.toISOString();
     const updatedLedger = [...cleanLedger, newTimestamp];
 
-    const payout = 1.7; // Flat $1.70 for both tiers
+    const baseRate = getBaseRate(currentUser.depositTier);
+    const payout = applyBoost(baseRate, approvedLevelCount);
     const id = generateUniqueSubId();
 
     const [subRes, userRes] = await Promise.all([
@@ -574,7 +639,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     setUsers((prev) => prev.map((u) =>
       u.id === currentUser.id ? { ...u, lastSubmissionsLedger: updatedLedger } : u
     ));
-  }, [currentUser]);
+  }, [currentUser, approvedLevelCount]);
 
   const approveSubmission = useCallback(async (submissionId: string) => {
     const sub = submissions.find((s) => s.submissionId === submissionId);
@@ -609,7 +674,6 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
         ? { ...s, status: 'Rejected' as const, rejectionFeedback: feedback ?? null }
         : s
     ));
-    // Revert assignment to Available so user can resubmit
     if (sub) {
       setAssignments((prev) => prev.map((a) =>
         a.topicId === sub.topicId ? { ...a, status: 'Available' as const } : a
@@ -627,24 +691,21 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   ): Promise<{ success: boolean; error?: string }> => {
     if (!currentUser) return { success: false, error: 'Not authenticated' };
 
-    // Referral-based withdrawal eligibility check
     const lifetimeWithdrawals = currentUser.lifetimeWithdrawals ?? 0;
     const activeReferrals = currentUser.currentCycleReferrals ?? 0;
 
     if (lifetimeWithdrawals === 0) {
-      // First withdrawal requires 2 active referrals
-      if (activeReferrals < 2) {
+      if (activeReferrals < 3) {
         return {
           success: false,
-          error: 'First Withdrawal Requirement: You need at least 2 active referrals who have completed their account activation deposit to unlock your first payout.',
+          error: 'First Withdrawal Requirement: You need at least 3 active referrals who have completed their account activation deposit to unlock your first payout.',
         };
       }
     } else {
-      // Subsequent withdrawals require 1 new active referral
-      if (activeReferrals < 1) {
+      if (activeReferrals < 2) {
         return {
           success: false,
-          error: 'Withdrawal Requirement: You need at least 1 active referral who has completed their account activation deposit to unlock this payout.',
+          error: 'Withdrawal Requirement: You need at least 2 active referrals who have completed their account activation deposit to unlock this payout.',
         };
       }
     }
@@ -719,7 +780,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     if (!targetId) return;
     const user = users.find((u) => u.id === targetId);
     if (!user) return;
-    const newCount = Math.min(2, user.currentCycleReferrals + 1);
+    const newCount = user.currentCycleReferrals + 1;
     const { error } = await supabase.from('users')
       .update({ current_cycle_referrals: newCount }).eq('id', targetId);
     if (error) { console.error(error); return; }
@@ -732,30 +793,96 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, depositTier: tier } : u)));
   }, []);
 
+  // ── Referral Level Claims ─────────────────────────────────────────────────────
+
+  const claimLevelReward = useCallback(async (level: 1 | 2 | 3) => {
+    if (!currentUser) return;
+    const config = REFERRAL_LEVELS.find((l) => l.level === level);
+    if (!config) return;
+
+    // Check if already claimed
+    const existing = levelClaims.find(
+      (c) => c.userId === currentUser.id && c.level === level && c.status !== 'Rejected'
+    );
+    if (existing) return;
+
+    const id = `claim-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const { error } = await supabase.from('referral_level_claims').insert([{
+      id,
+      user_id: currentUser.id,
+      username: currentUser.username,
+      level,
+      reward_amount: config.reward,
+      status: 'Pending',
+    }]);
+    if (error) { console.error(error); return; }
+
+    setLevelClaims((prev) => [{
+      id,
+      userId: currentUser.id,
+      username: currentUser.username,
+      level,
+      rewardAmount: config.reward,
+      status: 'Pending' as const,
+      rejectionNote: null,
+      createdAt: new Date().toISOString(),
+      reviewedAt: null,
+    }, ...prev]);
+  }, [currentUser, levelClaims]);
+
+  const approveLevelClaim = useCallback(async (claimId: string) => {
+    const claim = levelClaims.find((c) => c.id === claimId);
+    if (!claim || claim.status !== 'Pending') return;
+    const user = users.find((u) => u.id === claim.userId);
+    if (!user) return;
+
+    const newEarnings = user.availableEarnings + claim.rewardAmount;
+    const now = new Date().toISOString();
+    const [claimRes, userRes] = await Promise.all([
+      supabase.from('referral_level_claims')
+        .update({ status: 'Approved', reviewed_at: now })
+        .eq('id', claimId),
+      supabase.from('users')
+        .update({ available_earnings: newEarnings })
+        .eq('id', user.id),
+    ]);
+    if (claimRes.error || userRes.error) { console.error(claimRes.error ?? userRes.error); return; }
+
+    setLevelClaims((prev) => prev.map((c) =>
+      c.id === claimId ? { ...c, status: 'Approved' as const, reviewedAt: now } : c
+    ));
+    setUsers((prev) => prev.map((u) =>
+      u.id === user.id ? { ...u, availableEarnings: newEarnings } : u
+    ));
+  }, [levelClaims, users]);
+
+  const rejectLevelClaim = useCallback(async (claimId: string, note?: string) => {
+    const claim = levelClaims.find((c) => c.id === claimId);
+    if (!claim || claim.status !== 'Pending') return;
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('referral_level_claims')
+      .update({ status: 'Rejected', rejection_note: note ?? null, reviewed_at: now })
+      .eq('id', claimId);
+    if (error) { console.error(error); return; }
+    setLevelClaims((prev) => prev.map((c) =>
+      c.id === claimId ? { ...c, status: 'Rejected' as const, rejectionNote: note ?? null, reviewedAt: now } : c
+    ));
+  }, [levelClaims]);
+
   // ── Utilities ─────────────────────────────────────────────────────────────────
 
   const getUserById = useCallback((userId: string) => users.find((u) => u.id === userId), [users]);
 
-  // Get users who registered with this user's referral link but haven't deposited yet
   const getPendingReferrals = useCallback((username: string) => {
     return users
       .filter((u) => u.invitedBy === username && u.activationStatus !== 'Active')
-      .map((u) => ({
-        username: u.username,
-        status: 'pending' as const,
-        createdAt: u.createdAt,
-      }));
+      .map((u) => ({ username: u.username, status: 'pending' as const, createdAt: u.createdAt }));
   }, [users]);
 
-  // Get users who registered with this user's referral link AND have deposited
   const getActiveReferrals = useCallback((username: string) => {
     return users
       .filter((u) => u.invitedBy === username && u.activationStatus === 'Active')
-      .map((u) => ({
-        username: u.username,
-        status: 'active' as const,
-        createdAt: u.createdAt,
-      }));
+      .map((u) => ({ username: u.username, status: 'active' as const, createdAt: u.createdAt }));
   }, [users]);
 
   const refreshCurrentUser = useCallback(async () => {
@@ -790,6 +917,10 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     currentUserAssignments: assignments,
     pendingUserSubmissions, pendingCashoutRequests,
     allSubmissions: submissions,
+    levelClaims,
+    currentUserLevelClaims,
+    approvedLevelCount,
+    currentUserBoostPercent,
     taskRestrictionStatus,
     login, signup, logout, selectTier,
     submitDepositProof, approveDeposit, declineDeposit,
@@ -799,6 +930,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     setViewMode, getUserById, getPendingReferrals, getActiveReferrals,
     refreshCurrentUser, refreshAssignments, refreshAll,
     uploadAvatar,
+    claimLevelReward, approveLevelClaim, rejectLevelClaim,
   };
 
   if (isLoading) return null;

@@ -1,9 +1,48 @@
-export type AccountTier = 0 | 1 | 2;
+export type AccountTier = 0 | 1 | 2 | 3;
 export type SubmissionStatus = 'Submitted_Pending' | 'Approved' | 'Rejected';
 export type CashoutStatus = 'Pending' | 'Completed' | 'Rejected';
 export type DepositStatus = 'Pending' | 'Approved' | 'Declined';
 export type ActivationStatus = 'Activation_Pending' | 'Active' | null;
 export type SubmissionType = 'local_text' | 'photo_document';
+export type LevelClaimStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export interface TierConfig {
+  deposit: number;
+  dailyLimit: number;
+  baseRate: number;
+  label: string;
+}
+
+export const TIER_CONFIG: Record<1 | 2 | 3, TierConfig> = {
+  1: { deposit: 15, dailyLimit: 1, baseRate: 0.70, label: 'Tier I' },
+  2: { deposit: 35, dailyLimit: 1, baseRate: 1.70, label: 'Tier II' },
+  3: { deposit: 70, dailyLimit: 2, baseRate: 1.70, label: 'Tier III' },
+};
+
+export interface ReferralLevel {
+  level: 1 | 2 | 3;
+  requiredReferrals: number;
+  reward: number;
+  boostPercent: number;
+}
+
+export const REFERRAL_LEVELS: ReferralLevel[] = [
+  { level: 1, requiredReferrals: 10, reward: 100, boostPercent: 0.5 },
+  { level: 2, requiredReferrals: 15, reward: 200, boostPercent: 0.5 },
+  { level: 3, requiredReferrals: 30, reward: 250, boostPercent: 0.5 },
+];
+
+export interface LevelClaim {
+  id: string;
+  userId: string;
+  username: string;
+  level: 1 | 2 | 3;
+  rewardAmount: number;
+  status: LevelClaimStatus;
+  rejectionNote: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+}
 
 export interface User {
   id: string;
@@ -13,13 +52,13 @@ export interface User {
   email: string;
   depositTier: AccountTier;
   availableEarnings: number;
-  currentCycleReferrals: number; // Active referrals who completed deposit
+  currentCycleReferrals: number;
   completedTopicIds: string[];
   activationStatus: ActivationStatus;
   avatarUrl: string | null;
-  lastSubmissionsLedger: string[]; // ISO timestamps of submissions in last 24h
-  invitedBy: string | null; // Username of referrer (null if no referral)
-  lifetimeWithdrawals: number; // Total successful withdrawals count
+  lastSubmissionsLedger: string[];
+  invitedBy: string | null;
+  lifetimeWithdrawals: number;
   createdAt: string;
 }
 
@@ -53,7 +92,7 @@ export interface PendingDeposit {
   id: string;
   userId: string;
   username: string;
-  chosenTier: 1 | 2;
+  chosenTier: 1 | 2 | 3;
   senderEmail: string;
   senderWalletAddress: string;
   receiptFilename: string | null;

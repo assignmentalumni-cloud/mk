@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { GlobalProvider, useGlobalState, ADMIN_USERNAME } from './hooks/useGlobalState.tsx';
 import { Layout } from './components/Layout';
+import { OnboardingPaywall } from './components/OnboardingPaywall';
 import { SignInPage } from './pages/SignInPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { HomePage } from './pages/HomePage';
@@ -13,8 +14,14 @@ import { AdminPage } from './pages/AdminPage';
 import { Notification } from './components/Notification';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useGlobalState();
+  const { isAuthenticated, currentUser, isAdmin } = useGlobalState();
   if (!isAuthenticated) return <Navigate to="/" replace />;
+  // Admin can always access
+  if (isAdmin) return <>{children}</>;
+  // Unactivated users are locked to the paywall
+  if (currentUser && currentUser.depositTier === 0) {
+    return <OnboardingPaywall />;
+  }
   return <>{children}</>;
 }
 

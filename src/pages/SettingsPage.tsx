@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { User, Mail, Lock, Crown, Zap, DollarSign, TrendingUp, Upload, Camera, AlertCircle, CheckCircle, Clock, XCircle, Shield } from 'lucide-react';
+import { User, Mail, Lock, Crown, Zap, DollarSign, TrendingUp, Upload, Camera, AlertCircle, CheckCircle, Clock, XCircle, Shield, Sparkles } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
 import { WithdrawalPanel } from '../components/WithdrawalPanel';
@@ -7,6 +7,7 @@ import { DepositOverlay } from '../components/DepositOverlay';
 import { Notification } from '../components/Notification';
 import { TransactionLedger } from '../components/TransactionLedger';
 import type { AccountTier } from '../types';
+import { TIER_CONFIG } from '../types';
 
 export function SettingsPage() {
   const { isDark } = useTheme();
@@ -33,7 +34,7 @@ export function SettingsPage() {
   const currentCycleReferrals = currentUser?.currentCycleReferrals ?? 0;
   const accountTier = currentUser?.depositTier ?? 0;
   const lifetimeWithdrawals = currentUser?.lifetimeWithdrawals ?? 0;
-  const requiredReferrals = lifetimeWithdrawals === 0 ? 2 : 1;
+  const requiredReferrals = lifetimeWithdrawals === 0 ? 3 : 2;
   const referralsMet = currentCycleReferrals >= requiredReferrals;
 
   const userDeposits = pendingDeposits.filter((d) => d.userId === currentUser?.id);
@@ -169,13 +170,17 @@ export function SettingsPage() {
               <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Account Tier</p>
               <div className="flex items-center gap-2">
                 {isProfileActive ? (
-                  accountTier === 2 ? (
+                  accountTier === 3 ? (
                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-neon-pink/20 text-neon-pink text-xs font-medium">
-                      <Crown className="w-3 h-3" />Tier II
+                      <Crown className="w-3 h-3" />Tier III (${TIER_CONFIG[3].deposit})
+                    </div>
+                  ) : accountTier === 2 ? (
+                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium">
+                      <Sparkles className="w-3 h-3" />Tier II (${TIER_CONFIG[2].deposit})
                     </div>
                   ) : (
                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-medium">
-                      <Zap className="w-3 h-3" />Tier I
+                      <Zap className="w-3 h-3" />Tier I (${TIER_CONFIG[1].deposit})
                     </div>
                   )
                 ) : (
@@ -230,7 +235,7 @@ export function SettingsPage() {
                 <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-bold text-green-400">
-                    Approved: {accountTier === 2 ? 'Tier II Active' : 'Tier I Active'}
+                    Approved: {accountTier === 3 ? 'Tier III Active' : accountTier === 2 ? 'Tier II Active' : 'Tier I Active'}
                   </p>
                   <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Your escrow deposit has been verified. Your workspace is unlocked.
@@ -331,8 +336,8 @@ export function SettingsPage() {
               </p>
               <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                 {lifetimeWithdrawals === 0
-                  ? 'First cashout requires 2 active referrals. Subsequent cashouts require 1.'
-                  : 'This cashout requires 1 active referral.'}
+                  ? 'First cashout requires 3 active referrals. Subsequent cashouts require 2.'
+                  : 'This cashout requires 2 active referrals.'}
               </p>
             </div>
           </div>
@@ -359,7 +364,7 @@ export function SettingsPage() {
 
         {showDepositOverlay && (
           <DepositOverlay
-            onSelectTier={(_tier: AccountTier) => {
+            onSelectTier={(_tier: 1 | 2 | 3) => {
               setShowDepositOverlay(false);
             }}
           />

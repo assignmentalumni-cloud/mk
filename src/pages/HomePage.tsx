@@ -55,10 +55,10 @@ export function HomePage() {
                   <span className="font-bold">Global Workspace:</span> Open to dedicated freelancers across all borders
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                 <Award className={`w-4 h-4 text-neon-pink`} />
                 <span className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <span className="font-bold">Guaranteed Returns:</span> Secure <span className="font-bold text-neon-pink">$1.70</span> per approved submission
+                  <span className="font-bold">Tiered Earning:</span> $0.70, $1.70, or $3.40 daily based on your plan
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -94,7 +94,7 @@ export function HomePage() {
             <MetricCard
               icon={<Lock className="w-6 h-6 text-neon-pink" />}
               label="Active Escrow Tier Level"
-              value={isProfileActive ? (accountTier === 2 ? 'Tier II ($70)' : 'Tier I ($35)') : '--'}
+              value={isProfileActive ? (accountTier === 3 ? 'Tier III ($70)' : accountTier === 2 ? 'Tier II ($35)' : 'Tier I ($15)') : '--'}
               badge={
                 isProfileActive ? (
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-medium">
@@ -118,7 +118,7 @@ export function HomePage() {
             <MetricCard
               icon={<Users className="w-6 h-6 text-neon-pink" />}
               label="Referral Tracker Loop"
-              value={`${currentCycleReferrals} / 2`}
+              value={`${currentCycleReferrals} / ${lifetimeWithdrawals === 0 ? 3 : 2}`}
             />
           </div>
 

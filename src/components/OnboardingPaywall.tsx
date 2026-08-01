@@ -2,18 +2,15 @@ import { useState, useRef, useCallback } from 'react';
 import {
   Shield, Lock, Crown, Zap, Sparkles, Upload,
   FileCheck, X, AlertCircle, Clock, CheckCircle, Copy,
-  Wallet, User, Mail,
+  Wallet, User, Mail, TrendingUp,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
+import { TIER_CONFIG } from '../types';
 import type { AccountTier } from '../types';
 
-// ─── BEP-20 Payment destination constant ───────────────────────────────────────
 const BEP20_DEPOSIT_ADDRESS = '0xDb4E86cCa824E8CBeDba466430CFC1f8A6191BCb';
-
-interface DepositOverlayProps {
-  onSelectTier: (tier: 1 | 2 | 3) => void;
-}
+const SUPPORT_EMAIL = 'Assignmentalumni@gmail.com';
 
 interface UploadedFile {
   name: string;
@@ -26,14 +23,14 @@ function formatSize(bytes: number) {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
-export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
+export function OnboardingPaywall() {
   const { isDark } = useTheme();
   const { currentUser, submitDepositProof } = useGlobalState();
 
-  // If user already submitted, show waiting screen
   const isPending = currentUser?.activationStatus === 'Activation_Pending';
+  const isRejected = currentUser?.activationStatus === null && currentUser?.depositTier === 0;
 
-  const [selectedTier, setSelectedTier] = useState<1 | 2 | null>(null);
+  const [selectedTier, setSelectedTier] = useState<1 | 2 | 3 | null>(null);
   const [username, setUsername] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
@@ -90,20 +87,18 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
       file?.name ?? null,
     );
     setIsSubmitting(false);
-    // activationStatus now 'Activation_Pending' — overlay will re-render to pending screen
   };
 
   const tiers = [
-    { id: 1 as const, deposit: 15, label: 'Tier I Escrow', desc: 'Earn a flat $0.70 profit daily by completing 1 assignment.' },
-    { id: 2 as const, deposit: 35, label: 'Tier II Escrow', desc: 'Earn a flat $1.70 profit daily by completing 1 assignment.', badge: 'Popular' },
-    { id: 3 as const, deposit: 70, label: 'Tier III Escrow', desc: 'Earn up to $3.40 flat profit daily by completing 2 assignments ($1.70 each).', badge: 'Premium' },
+    { id: 1 as const, ...TIER_CONFIG[1], desc: 'Earn $0.70 profit daily by completing 1 assignment.' },
+    { id: 2 as const, ...TIER_CONFIG[2], desc: 'Earn $1.70 profit daily by completing 1 assignment.', badge: 'Popular' },
+    { id: 3 as const, ...TIER_CONFIG[3], desc: 'Earn up to $3.40 profit daily by completing 2 assignments ($1.70 each).', badge: 'Premium' },
   ];
 
-  // ── Pending state screen ──────────────────────────────────────────────────────
+  // ── Pending state ──────────────────────────────────────────────────────────────
   if (isPending) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-        <div className="absolute inset-0 backdrop-blur-xl bg-black/70" />
+      <div className={`min-h-screen ${isDark ? 'bg-cosmic-midnight' : 'bg-ivory'} flex items-center justify-center p-4`}>
         <div className={`relative ${glass} max-w-md w-full p-8 text-center shadow-2xl`}>
           <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5 ${isDark ? 'bg-yellow-500/20' : 'bg-yellow-100'}`}>
             <Clock className="w-8 h-8 text-yellow-400" />
@@ -112,8 +107,7 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
             Deposit Under Review
           </h2>
           <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Your deposit proof is under manual review by the network administrator.
-            Your ledger will unlock shortly once the transaction is verified.
+            Status: Pending Admin Review. Please wait while an admin verifies your payment slip.
           </p>
           <div
             className="mt-6 p-4 rounded-xl border-2 flex items-start gap-3"
@@ -129,12 +123,23 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
     );
   }
 
+  // ── Rejected state (re-show form with rejection banner) ─────────────────────────
+  const showRejectedBanner = isRejected && (currentUser?.username !== undefined);
+
   // ── Main deposit form ─────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 backdrop-blur-xl bg-black/65" />
-
+    <div className={`min-h-screen ${isDark ? 'bg-cosmic-midnight' : 'bg-ivory'} flex items-center justify-center p-4 py-8`}>
       <div className={`relative ${glass} max-w-lg w-full p-6 sm:p-8 shadow-2xl max-h-[92vh] overflow-y-auto`}>
+        {/* Rejection banner */}
+        {showRejectedBanner && (
+          <div className="mb-5 p-4 rounded-xl border-2 border-red-500/40 bg-red-500/10 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-left leading-relaxed text-red-400 font-medium">
+              Deposit Rejected: Invalid/Fake Proof. Please upload a valid payment slip to try again.
+            </p>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-7">
           <div className="flex items-center justify-center gap-2 mb-3">
@@ -145,7 +150,7 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
             Activate Your Profile
           </h2>
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Submit a verifiable deposit proof to unlock your Academic Writing Desk.
+            Welcome to Assignment Alumni! Select a tier and submit your deposit slip to unlock your workspace.
           </p>
         </div>
 
@@ -174,15 +179,14 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
                   )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {tier.id === 2 ? <Crown className={`w-4 h-4 ${active ? 'text-neon-pink' : isDark ? 'text-gray-400' : 'text-gray-500'}`} /> : <Zap className={`w-4 h-4 ${active ? 'text-neon-pink' : isDark ? 'text-gray-400' : 'text-gray-500'}`} />}
-                      <span className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{tier.label}</span>
+                      {tier.id === 3 ? <Crown className={`w-4 h-4 ${active ? 'text-neon-pink' : isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                        : tier.id === 2 ? <Sparkles className={`w-4 h-4 ${active ? 'text-neon-pink' : isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                        : <Zap className={`w-4 h-4 ${active ? 'text-neon-pink' : isDark ? 'text-gray-400' : 'text-gray-500'}`} />}
+                      <span className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{tier.label} (${tier.deposit})</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Sparkles className={`w-4 h-4 ${active ? 'text-neon-pink' : isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                      <span className={`text-2xl font-bold ${active ? 'text-neon-pink' : isDark ? 'text-white' : 'text-gray-900'}`}>
-                        ${tier.deposit}
-                      </span>
-                    </div>
+                    <span className={`text-2xl font-bold ${active ? 'text-neon-pink' : isDark ? 'text-white' : 'text-gray-900'}`}>
+                      ${tier.deposit}
+                    </span>
                   </div>
                   <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{tier.desc}</p>
                 </button>
@@ -192,7 +196,7 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
           {errors.tier && <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.tier}</p>}
         </div>
 
-        {/* Single BEP-20 Payment Address */}
+        {/* BEP-20 Payment Address */}
         <div className="mb-6">
           <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             Step 2 — Send Funds to Deposit Address
@@ -219,7 +223,7 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
               </div>
             </div>
             <div className={`flex items-center gap-2 px-4 py-3 rounded-lg ${isDark ? 'bg-black/30' : 'bg-white'} border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-              <code className={`text-sm flex-1 break-all font-mono ${isDark ? 'text-neon-pink' : 'text-neon-pink'}`}>
+              <code className={`text-sm flex-1 break-all font-mono text-neon-pink`}>
                 {BEP20_DEPOSIT_ADDRESS}
               </code>
               <button
@@ -240,7 +244,6 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
             Step 3 — Submit Verification Details
           </p>
           <div className="space-y-4">
-            {/* Account Username */}
             <div>
               <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 Account Username <span className="text-neon-pink">*</span>
@@ -263,7 +266,6 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
               {errors.username && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.username}</p>}
             </div>
 
-            {/* Registered Email */}
             <div>
               <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 Registered Email Address <span className="text-neon-pink">*</span>
@@ -286,7 +288,6 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
               {errors.senderEmail && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.senderEmail}</p>}
             </div>
 
-            {/* Sender Wallet Address */}
             <div>
               <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 Sender Wallet Address (BEP-20) <span className="text-neon-pink">*</span>
@@ -309,7 +310,6 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
               {errors.walletAddress && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.walletAddress}</p>}
             </div>
 
-            {/* Transaction Receipt Screenshot */}
             <div>
               <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 Transaction Receipt Screenshot <span className="text-neon-pink">*</span>
@@ -386,6 +386,16 @@ export function DepositOverlay({ onSelectTier }: DepositOverlayProps) {
         <p className={`text-center text-xs mt-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
           Submissions are reviewed manually. Do not send duplicate proofs.
         </p>
+
+        {/* Support email */}
+        <div className={`mt-5 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'} text-center`}>
+          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            Need help? Contact our 24/7 support team at{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-neon-pink font-medium hover:underline">
+              {SUPPORT_EMAIL}
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

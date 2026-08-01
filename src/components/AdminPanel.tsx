@@ -4,12 +4,14 @@ import {
   Crown, Zap, Clock, ChevronDown, ShieldCheck, RefreshCw,
   PlusCircle, Settings, Inbox, Wallet, ExternalLink,
   Camera, PenLine, Hash, Link2, Copy, X, ImageIcon,
+  Award, Sparkles, TrendingUp,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
-import type { AccountTier, PendingDeposit, Submission } from '../types';
+import type { AccountTier, PendingDeposit, Submission, LevelClaim } from '../types';
+import { TIER_CONFIG, REFERRAL_LEVELS } from '../types';
 
-type Tab = 'approvals' | 'deposits' | 'payouts';
+type Tab = 'approvals' | 'deposits' | 'payouts' | 'claims';
 
 // Copy to clipboard utility
 function CopyButton({ text, label }: { text: string; label?: string }) {
@@ -198,6 +200,9 @@ export function AdminPanel() {
     forceSetTier,
     getUserById,
     refreshAll,
+    levelClaims,
+    approveLevelClaim,
+    rejectLevelClaim,
   } = useGlobalState();
 
   const [activeTab, setActiveTab] = useState<Tab>('approvals');
@@ -215,6 +220,7 @@ export function AdminPanel() {
   const approvedSubmissions = allSubmissions.filter((s) => s.status === 'Approved');
   const queuedDeposits = pendingDeposits.filter((d) => d.status === 'Pending');
   const pendingCashouts = cashoutRequests.filter((c) => c.status === 'Pending');
+  const pendingLevelClaims = levelClaims.filter((c) => c.status === 'Pending');
 
   const openLightbox = (url: string, title?: string) => {
     setLightboxUrl(url);
@@ -233,14 +239,19 @@ export function AdminPanel() {
   };
 
   const tierBadge = (tier: AccountTier) => {
-    if (tier === 2) return (
+    if (tier === 3) return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-neon-pink/20 text-neon-pink">
-        <Crown className="w-3 h-3" /> Tier II
+        <Crown className="w-3 h-3" /> Tier III (${TIER_CONFIG[3].deposit})
+      </span>
+    );
+    if (tier === 2) return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400">
+        <Sparkles className="w-3 h-3" /> Tier II (${TIER_CONFIG[2].deposit})
       </span>
     );
     if (tier === 1) return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
-        <Zap className="w-3 h-3" /> Tier I
+        <Zap className="w-3 h-3" /> Tier I (${TIER_CONFIG[1].deposit})
       </span>
     );
     return (
@@ -254,6 +265,7 @@ export function AdminPanel() {
     { key: 'approvals', label: 'Proof Approvals', count: pendingSubmissions.length, icon: <FileText className="w-4 h-4" /> },
     { key: 'deposits', label: 'Deposit Ledger', count: queuedDeposits.length, icon: <Inbox className="w-4 h-4" /> },
     { key: 'payouts', label: 'Payout Vault', count: pendingCashouts.length, icon: <DollarSign className="w-4 h-4" /> },
+    { key: 'claims', label: 'Level Claims', count: pendingLevelClaims.length, icon: <Award className="w-4 h-4" /> },
   ];
 
   return (
@@ -285,6 +297,7 @@ export function AdminPanel() {
             { label: 'Pending Reviews', val: pendingSubmissions.length, hi: pendingSubmissions.length > 0 },
             { label: 'Deposit Queue', val: queuedDeposits.length, hi: queuedDeposits.length > 0 },
             { label: 'Pending Payouts', val: pendingCashouts.length, hi: pendingCashouts.length > 0 },
+            { label: 'Level Claims', val: pendingLevelClaims.length, hi: pendingLevelClaims.length > 0 },
           ].map(({ label, val, hi }) => (
             <div key={label} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${hi ? 'bg-neon-pink/20 text-neon-pink' : isDark ? 'bg-white/5 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
               {label}: <span className="font-bold">{val}</span>
@@ -532,9 +545,9 @@ export function AdminPanel() {
                             <WalletAddress address={dep.senderWalletAddress} />
                           </td>
                           <td className="px-4 py-4">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${dep.chosenTier === 2 ? 'bg-neon-pink/20 text-neon-pink' : 'bg-blue-500/20 text-blue-400'}`}>
-                              {dep.chosenTier === 2 ? <Crown className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
-                              ${dep.chosenTier === 1 ? '35' : '70'}
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${dep.chosenTier === 3 ? 'bg-neon-pink/20 text-neon-pink' : dep.chosenTier === 2 ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                              {dep.chosenTier === 3 ? <Crown className="w-3 h-3" /> : dep.chosenTier === 2 ? <Sparkles className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
+                              ${TIER_CONFIG[dep.chosenTier].deposit}
                             </span>
                           </td>
                           <td className="px-4 py-4">
@@ -808,6 +821,116 @@ export function AdminPanel() {
                     </div>
                     <span className={`text-xs font-bold ${req.status === 'Completed' ? 'text-green-400' : 'text-red-400'}`}>
                       {req.status === 'Completed' ? `−$${req.amount.toFixed(2)}` : 'Returned'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB D: Level Reward Claims */}
+      {activeTab === 'claims' && (
+        <div className="space-y-4">
+          {pendingLevelClaims.length === 0 ? (
+            <div className={`${glass} p-8 text-center`}>
+              <Award className={`w-10 h-10 mx-auto mb-3 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} />
+              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No pending level reward claims</p>
+              <p className={`text-xs mt-1 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>Users who reach 10, 15, or 30 referrals will appear here for approval</p>
+            </div>
+          ) : (
+            <div className={`${glass} p-5`}>
+              <div className="flex items-center gap-2 mb-4">
+                <Award className="w-5 h-5 text-neon-pink" />
+                <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Pending Level Reward Claims</h3>
+                <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-bold ${isDark ? 'bg-neon-pink/20 text-neon-pink' : 'bg-pink-100 text-pink-600'}`}>
+                  {pendingLevelClaims.length}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {pendingLevelClaims.map((claim) => {
+                  const claimUser = getUserById(claim.userId);
+                  const userActiveReferrals = claimUser ? (users.find((u) => u.invitedBy === claim.username && u.activationStatus === 'Active') ? 1 : 0) : 0;
+                  const lvlConfig = REFERRAL_LEVELS.find((l) => l.level === claim.level);
+                  return (
+                    <div key={claim.id} className={`rounded-xl p-4 border-2 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'}`}>
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-neon-pink/20' : 'bg-pink-100'}`}>
+                            <Award className="w-5 h-5 text-neon-pink" />
+                          </div>
+                          <div>
+                            <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>@{claim.username}</p>
+                            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                              Level {claim.level} Claim · {lvlConfig?.requiredReferrals} referrals required
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-neon-pink">${claim.rewardAmount.toFixed(0)}</p>
+                          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>+{lvlConfig?.boostPercent}% boost</p>
+                        </div>
+                      </div>
+                      {claimUser && (
+                        <div className={`grid grid-cols-3 gap-2 mb-3 text-xs`}>
+                          <div className={`p-2 rounded-lg ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+                            <p className={isDark ? 'text-gray-500' : 'text-gray-400'}>Referrals</p>
+                            <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{claimUser.currentCycleReferrals}</p>
+                          </div>
+                          <div className={`p-2 rounded-lg ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+                            <p className={isDark ? 'text-gray-500' : 'text-gray-400'}>Balance</p>
+                            <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>${claimUser.availableEarnings.toFixed(2)}</p>
+                          </div>
+                          <div className={`p-2 rounded-lg ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+                            <p className={isDark ? 'text-gray-500' : 'text-gray-400'}>Tier</p>
+                            <p>{tierBadge(claimUser.depositTier)}</p>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => act(claim.id, () => approveLevelClaim(claim.id))}
+                          disabled={busyId === claim.id}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all disabled:opacity-50"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" /> Approve & Credit Wallet
+                        </button>
+                        <button
+                          onClick={() => act(claim.id + '_rej', () => rejectLevelClaim(claim.id, 'Fake referral accounts detected.'))}
+                          disabled={busyId === claim.id}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all disabled:opacity-50"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Reject Claim
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Settled claims history */}
+          {levelClaims.filter((c) => c.status === 'Approved' || c.status === 'Rejected').length > 0 && (
+            <div className={`${glass} p-5`}>
+              <h4 className={`text-sm font-semibold mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Recent Claim Decisions
+              </h4>
+              <div className="space-y-2">
+                {levelClaims.filter((c) => c.status === 'Approved' || c.status === 'Rejected').slice(0, 8).map((claim) => (
+                  <div key={claim.id} className={`flex items-center gap-3 p-3 rounded-lg ${claim.status === 'Approved' ? isDark ? 'bg-green-500/10' : 'bg-green-50' : isDark ? 'bg-red-500/10' : 'bg-red-50'}`}>
+                    {claim.status === 'Approved' ? (
+                      <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>@{claim.username}</span>
+                      <span className={`text-xs ml-1.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>· Level {claim.level}</span>
+                    </div>
+                    <span className={`text-xs font-bold ${claim.status === 'Approved' ? 'text-green-400' : 'text-red-400'}`}>
+                      {claim.status === 'Approved' ? `+${claim.rewardAmount.toFixed(0)}` : 'Rejected'}
                     </span>
                   </div>
                 ))}

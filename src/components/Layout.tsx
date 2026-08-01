@@ -15,13 +15,16 @@ const NAV_ITEMS = [
 
 export function Layout() {
   const { isDark, toggleTheme } = useTheme();
-  const { currentUser, viewMode, logout, setViewMode, isAdmin } = useGlobalState();
+  const { currentUser, viewMode, logout, setViewMode, isAdmin, isProfileActive } = useGlobalState();
   const navigate = useNavigate();
   const location = useLocation();
 
   const isAuthPage = location.pathname === '/' || location.pathname === '/register';
 
-  if (isAuthPage) {
+  // Hide main nav for unactivated users (they only see the paywall)
+  const showNav = isProfileActive || isAdmin;
+
+  if (isAuthPage || !showNav) {
     return <Outlet />;
   }
 
