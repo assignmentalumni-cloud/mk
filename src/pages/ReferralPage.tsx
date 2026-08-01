@@ -1,11 +1,9 @@
-import { useMemo } from 'react';
-import { Users, Gift, Sparkles, Copy, CheckCircle, Link2, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Users, Gift, Sparkles, Copy, CheckCircle, Link2, Clock, AlertTriangle, CheckCircle2, DollarSign, TrendingUp } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
-import { AffiliateNodeNetwork } from '../components/AffiliateNodeNetwork';
 import { DepositOverlay } from '../components/DepositOverlay';
-import { useState } from 'react';
 
 export function ReferralPage() {
   const { isDark } = useTheme();
@@ -59,6 +57,52 @@ export function ReferralPage() {
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             Share your link and earn $5.00 for every active referral
           </p>
+        </div>
+
+        {/* Reward Counter */}
+        <div className={`rounded-2xl p-6 mb-6 border-2 ${
+          isDark
+            ? 'bg-gradient-to-br from-yellow-500/10 via-green-500/5 to-neon-pink/10 border-yellow-500/40'
+            : 'bg-gradient-to-br from-yellow-50 via-green-50 to-pink-50 border-yellow-300'
+        }`}
+        style={{ boxShadow: isDark ? '0 0 40px rgba(245, 158, 11, 0.15)' : 'none' }}
+        >
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                isDark ? 'bg-yellow-500/20' : 'bg-yellow-100'
+              }`}>
+                <Gift className="w-8 h-8 text-yellow-400" />
+              </div>
+              <div>
+                <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Total Referral Earnings
+                </p>
+                <p className="text-4xl font-bold text-yellow-400 tabular-nums">
+                  ${(activeReferrals.length * 5).toFixed(2)}
+                </p>
+                <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                  $5.00 credited per active referral
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <div className="flex items-center gap-1.5 justify-center mb-1">
+                  <TrendingUp className="w-4 h-4 text-green-400" />
+                  <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Active</span>
+                </div>
+                <p className="text-2xl font-bold text-green-400 tabular-nums">{activeReferrals.length}</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center gap-1.5 justify-center mb-1">
+                  <Clock className="w-4 h-4 text-yellow-400" />
+                  <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Pending</span>
+                </div>
+                <p className="text-2xl font-bold text-yellow-400 tabular-nums">{pendingReferrals.length}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className={`relative ${showDepositOverlay ? 'filter blur-md pointer-events-none select-none' : ''}`}>
