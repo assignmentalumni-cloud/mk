@@ -307,18 +307,23 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   const loadedRef = useRef(false);
 
   const loadAll = useCallback(async () => {
-    const [usersRes, subsRes, cashoutsRes, depositsRes, claimsRes] = await Promise.all([
-      supabase.from('users').select('*'),
-      supabase.from('submissions').select('*').order('submitted_at', { ascending: false }),
-      supabase.from('cashout_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('pending_deposits').select('*').order('submitted_at', { ascending: false }),
-      supabase.from('referral_level_claims').select('*').order('created_at', { ascending: false }),
-    ]);
-    if (!usersRes.error) setUsers((usersRes.data as DbUser[]).map(mapUser));
-    if (!subsRes.error) setSubmissions((subsRes.data as DbSubmission[]).map(mapSubmission));
-    if (!cashoutsRes.error) setCashouts((cashoutsRes.data as DbCashout[]).map(mapCashout));
-    if (!depositsRes.error) setDeposits((depositsRes.data as DbDeposit[]).map(mapDeposit));
-    if (!claimsRes.error) setLevelClaims((claimsRes.data as DbLevelClaim[]).map(mapLevelClaim));
+    try {
+      const [usersRes, subsRes, cashoutsRes, depositsRes, claimsRes] = await Promise.all([
+        supabase.from('users').select('*'),
+        supabase.from('submissions').select('*').order('submitted_at', { ascending: false }),
+        supabase.from('cashout_requests').select('*').order('created_at', { ascending: false }),
+        supabase.from('pending_deposits').select('*').order('submitted_at', { ascending: false }),
+        supabase.from('referral_level_claims').select('*').order('created_at', { ascending: false }),
+      ]);
+      if (!usersRes.error) setUsers((usersRes.data as DbUser[]).map(mapUser));
+      else console.error('Failed to load users:', usersRes.error);
+      if (!subsRes.error) setSubmissions((subsRes.data as DbSubmission[]).map(mapSubmission));
+      if (!cashoutsRes.error) setCashouts((cashoutsRes.data as DbCashout[]).map(mapCashout));
+      if (!depositsRes.error) setDeposits((depositsRes.data as DbDeposit[]).map(mapDeposit));
+      if (!claimsRes.error) setLevelClaims((claimsRes.data as DbLevelClaim[]).map(mapLevelClaim));
+    } catch (err) {
+      console.error('loadAll error:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -408,40 +413,74 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   // ── Auth ──────────────────────────────────────────────────────────────────────
 
   const login = useCallback(async (username: string, password: string) => {
-    const user = users.find(
-      (u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password
-    );
-    if (!user) return { success: false, error: 'Invalid username or password.' };
-    localStorage.setItem(SESSION_KEY, user.id);
-    setCurrentUserId(user.id);
-    setViewModeState('user');
-    if (user.depositTier !== 0) setAssignments(buildAssignments(user));
-    return { success: true };
+    try {
+      let user = users.find(
+        (u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+      );
+      // Fallback: if local cache isn't populated yet, query Supabase directly
+      if (!user) {
+        const { data, error } = await supabase.from('users')
+          .select('*')
+          .ilike('username', username)
+          .eq('password', password)
+          .maybeSingle();
+        if (error) { console.error(error); return { success: false, error: 'Login failed. Please try again.' }; }
+        if (data) {
+          user = {
+            id: data.id, username: data.username, password: data.password,
+            fullName: data.full_name, email: data.email,
+            depositTier: data.deposit_tier, availableEarnings: data.available_earnings,
+            currentCycleReferrals: data.current_cycle_referrals,
+            completedTopicIds: data.completed_topic_ids || [],
+            activationStatus: data.activation_status,
+            avatarUrl: data.avatar_url,
+            lastSubmissionsLedger: data.last_submissions_ledger || [],
+            invitedBy: data.invited_by,
+            lifetimeWithdrawals: data.lifetime_withdrawals ?? 0,
+            createdAt: data.created_at,
+          };
+        }
+      }
+      if (!user) return { success: false, error: 'Invalid username or password.' };
+      localStorage.setItem(SESSION_KEY, user.id);
+      setCurrentUserId(user.id);
+      setViewModeState('user');
+      if (user.depositTier !== 0) setAssignments(buildAssignments(user));
+      return { success: true };
+    } catch (err) {
+      console.error('Login error:', err);
+      return { success: false, error: 'Login failed. Please try again.' };
+    }
   }, [users, buildAssignments]);
 
   const signup = useCallback(async (fullName: string, username: string, email: string, password: string, invitedBy: string | null = null) => {
-    if (users.some((u) => u.username.toLowerCase() === username.toLowerCase()))
-      return { success: false, error: 'Username already taken.' };
-    if (users.some((u) => u.email.toLowerCase() === email.toLowerCase()))
-      return { success: false, error: 'Email already registered.' };
-    const id = `user-${Date.now()}`;
-    const { error } = await supabase.from('users').insert([{
-      id, username, password, full_name: fullName, email,
-      deposit_tier: 0, available_earnings: 0,
-      current_cycle_referrals: 0, completed_topic_ids: [],
-      avatar_url: null, activation_status: null, last_submissions_ledger: [],
-      invited_by: invitedBy, lifetime_withdrawals: 0,
-    }]);
-    if (error) return { success: false, error: 'Failed to create account.' };
-    setUsers((prev) => [...prev, {
-      id, username, password, fullName, email,
-      depositTier: 0, availableEarnings: 0,
-      currentCycleReferrals: 0, completedTopicIds: [],
-      activationStatus: null, avatarUrl: null, lastSubmissionsLedger: [],
-      invitedBy, lifetimeWithdrawals: 0,
-      createdAt: new Date().toISOString(),
-    }]);
-    return { success: true };
+    try {
+      if (users.some((u) => u.username.toLowerCase() === username.toLowerCase()))
+        return { success: false, error: 'Username already taken.' };
+      if (users.some((u) => u.email.toLowerCase() === email.toLowerCase()))
+        return { success: false, error: 'Email already registered.' };
+      const id = `user-${Date.now()}`;
+      const { error } = await supabase.from('users').insert([{
+        id, username, password, full_name: fullName, email,
+        deposit_tier: 0, available_earnings: 0,
+        current_cycle_referrals: 0, completed_topic_ids: [],
+        avatar_url: null, activation_status: null, last_submissions_ledger: [],
+        invited_by: invitedBy, lifetime_withdrawals: 0,
+      }]);
+      if (error) return { success: false, error: 'Failed to create account.' };
+      setUsers((prev) => [...prev, {
+        id, username, password, fullName, email,
+        depositTier: 0, availableEarnings: 0,
+        currentCycleReferrals: 0, completedTopicIds: [],
+        activationStatus: null, avatarUrl: null, lastSubmissionsLedger: [],
+        invitedBy, lifetimeWithdrawals: 0,
+        createdAt: new Date().toISOString(),
+      }]);
+      return { success: true };
+    } catch (err) {
+      console.error('Signup error:', err);
+      return { success: false, error: 'Failed to create account. Please try again.' };
+    }
   }, [users]);
 
   const logout = useCallback(() => {
@@ -949,7 +988,19 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     claimLevelReward, approveLevelClaim, rejectLevelClaim,
   ]);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-cosmic-midnight">
+        <div className="flex flex-col items-center gap-4">
+          <svg className="animate-spin w-10 h-10 text-neon-pink" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <p className="text-sm text-gray-400">Loading your workspace…</p>
+        </div>
+      </div>
+    );
+  }
   return <GlobalContext.Provider value={value}>{children}</GlobalContext.Provider>;
 }
 
