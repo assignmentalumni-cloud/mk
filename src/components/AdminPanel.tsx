@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 import {
   CheckCircle, XCircle, Users, DollarSign, FileText, Lock,
   Crown, Zap, Clock, ChevronDown, ShieldCheck, RefreshCw,
@@ -14,13 +14,13 @@ import { TIER_CONFIG, REFERRAL_LEVELS } from '../types';
 type Tab = 'approvals' | 'deposits' | 'payouts' | 'claims';
 
 // Copy to clipboard utility
-function CopyButton({ text, label }: { text: string; label?: string }) {
+const CopyButton = memo(function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
+  const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
+  }, [text]);
   return (
     <button
       onClick={handleCopy}
@@ -35,10 +35,10 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
       <span className="hidden sm:inline">{copied ? 'Copied!' : 'Copy'}</span>
     </button>
   );
-}
+});
 
 // Lightbox modal for image preview
-function LightboxModal({
+const LightboxModal = memo(function LightboxModal({
   isOpen,
   onClose,
   imageUrl,
@@ -82,10 +82,10 @@ function LightboxModal({
       </div>
     </div>
   );
-}
+});
 
 // Receipt thumbnail for deposits
-function ReceiptThumbnail({
+const ReceiptThumbnail = memo(function ReceiptThumbnail({
   deposit,
   onPreview
 }: {
@@ -120,10 +120,10 @@ function ReceiptThumbnail({
       </span>
     </button>
   );
-}
+});
 
 // Photo document thumbnail for submissions
-function PhotoDocumentThumbnail({
+const PhotoDocumentThumbnail = memo(function PhotoDocumentThumbnail({
   submission,
   onPreview
 }: {
@@ -162,10 +162,10 @@ function PhotoDocumentThumbnail({
       </div>
     </button>
   );
-}
+});
 
 // Wallet address display with copy
-function WalletAddress({ address }: { address: string }) {
+const WalletAddress = memo(function WalletAddress({ address }: { address: string }) {
   const { isDark } = useTheme();
 
   if (!address) return <span className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>—</span>;
@@ -181,7 +181,7 @@ function WalletAddress({ address }: { address: string }) {
       <CopyButton text={address} label="wallet address" />
     </div>
   );
-}
+});
 
 export function AdminPanel() {
   const { isDark } = useTheme();
@@ -891,14 +891,14 @@ export function AdminPanel() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => act(claim.id, () => approveLevelClaim(claim.id))}
-                          disabled={busyId === claim.id}
+                          disabled={processing === claim.id}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all disabled:opacity-50"
                         >
                           <CheckCircle className="w-3.5 h-3.5" /> Approve & Credit Wallet
                         </button>
                         <button
                           onClick={() => act(claim.id + '_rej', () => rejectLevelClaim(claim.id, 'Fake referral accounts detected.'))}
-                          disabled={busyId === claim.id}
+                          disabled={processing === claim.id}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all disabled:opacity-50"
                         >
                           <XCircle className="w-3.5 h-3.5" /> Reject Claim

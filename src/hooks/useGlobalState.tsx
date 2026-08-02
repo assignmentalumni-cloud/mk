@@ -5,6 +5,7 @@ import {
   createContext,
   useContext,
   useRef,
+  useMemo,
 } from 'react';
 import type {
   User,
@@ -909,7 +910,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
 
   // ── Context value ─────────────────────────────────────────────────────────────
 
-  const value: GlobalContextType = {
+  const value: GlobalContextType = useMemo(() => ({
     users, submissions, cashoutRequests: cashouts,
     pendingDeposits: deposits,
     currentUserId, viewMode,
@@ -931,7 +932,22 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     refreshCurrentUser, refreshAssignments, refreshAll,
     uploadAvatar,
     claimLevelReward, approveLevelClaim, rejectLevelClaim,
-  };
+  }), [
+    users, submissions, cashouts, deposits, currentUserId, viewMode,
+    currentUser, isAuthenticated, isAdmin, isProfileActive,
+    assignments, pendingUserSubmissions, pendingCashoutRequests,
+    levelClaims, currentUserLevelClaims, approvedLevelCount,
+    currentUserBoostPercent, taskRestrictionStatus,
+    login, signup, logout, selectTier,
+    submitDepositProof, approveDeposit, declineDeposit,
+    submitAssignment, approveSubmission, rejectSubmission,
+    requestCashout, processCashout, rejectCashout,
+    addReferral, forceSetTier,
+    setViewMode, getUserById, getPendingReferrals, getActiveReferrals,
+    refreshCurrentUser, refreshAssignments, refreshAll,
+    uploadAvatar,
+    claimLevelReward, approveLevelClaim, rejectLevelClaim,
+  ]);
 
   if (isLoading) return null;
   return <GlobalContext.Provider value={value}>{children}</GlobalContext.Provider>;

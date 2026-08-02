@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { User, Mail, Lock, Crown, Zap, DollarSign, TrendingUp, Upload, Camera, AlertCircle, CheckCircle, Clock, XCircle, Shield, Sparkles } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
@@ -8,6 +8,7 @@ import { Notification } from '../components/Notification';
 import { TransactionLedger } from '../components/TransactionLedger';
 import type { AccountTier } from '../types';
 import { TIER_CONFIG } from '../types';
+import { compressImage } from '../utils/imageCompress';
 
 export function SettingsPage() {
   const { isDark } = useTheme();
@@ -42,27 +43,23 @@ export function SettingsPage() {
   const depositStatus = latestDeposit?.status ?? null;
   const activationStatus = currentUser?.activationStatus ?? null;
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     setIsUploadingAvatar(true);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const dataUrl = reader.result as string;
-        setAvatarPreview(dataUrl);
-        await uploadAvatar(dataUrl);
-        setNotificationMessage('Profile picture updated.');
-        setShowNotification(true);
-        setIsUploadingAvatar(false);
-      };
-      reader.readAsDataURL(file);
+      const dataUrl = await compressImage(file, 256, 256, 0.7);
+      setAvatarPreview(dataUrl);
+      await uploadAvatar(dataUrl);
+      setNotificationMessage('Profile picture updated.');
+      setShowNotification(true);
     } catch {
-      setIsUploadingAvatar(false);
       setNotificationMessage('Could not update profile picture.');
       setShowNotification(true);
+    } finally {
+      setIsUploadingAvatar(false);
     }
-  };
+  }, [uploadAvatar]);
 
   const handleCashout = async (
     amount: number,
