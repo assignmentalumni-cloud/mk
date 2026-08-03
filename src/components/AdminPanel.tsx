@@ -135,28 +135,62 @@ const PhotoDocumentThumbnail = memo(function PhotoDocumentThumbnail({
   if (submission.submissionType !== 'photo_document') return null;
 
   const imageUrl = submission.fileProofUrl || `https://assignmentalumni.com/uploads/${submission.fileProofName}`;
+  const isPdf = imageUrl.toLowerCase().endsWith('.pdf');
+
+  if (isPdf) {
+    return (
+      <a
+        href={imageUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+          isDark ? 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/30' : 'bg-red-50 hover:bg-red-100 border border-red-200'
+        }`}
+      >
+        <div
+          className="w-[60px] h-[40px] rounded-lg overflow-hidden flex items-center justify-center"
+          style={{ background: isDark ? 'rgba(239, 68, 68, 0.2)' : 'white' }}
+        >
+          <FileText className="w-5 h-5 text-red-400" />
+        </div>
+        <div className="text-left flex-1">
+          <p className={`text-xs font-semibold ${isDark ? 'text-red-400' : 'text-red-700'}`}>
+            View PDF Document
+          </p>
+          <p className={`text-xs mt-1 truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            {submission.fileProofName || 'Click to view'}
+          </p>
+        </div>
+        <ExternalLink className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+      </a>
+    );
+  }
 
   return (
     <button
       onClick={() => onPreview(imageUrl)}
-      className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+      className={`flex items-center gap-3 p-3 rounded-xl transition-all w-full text-left ${
         isDark ? 'bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30' : 'bg-purple-50 hover:bg-purple-100 border border-purple-200'
       }`}
     >
       <div
-        className="w-[60px] h-[40px] rounded-lg overflow-hidden flex items-center justify-center"
+        className="w-[60px] h-[60px] rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
         style={{
           boxShadow: isDark ? '0 0 15px rgba(168, 85, 247, 0.3)' : 'none',
           background: isDark ? 'rgba(168, 85, 247, 0.2)' : 'white',
         }}
       >
-        <Camera className="w-5 h-5 text-purple-400" />
+        {imageUrl.startsWith('http') && !imageUrl.includes('assignmentalumni.com') ? (
+          <img src={imageUrl} alt="Handwritten work" className="w-full h-full object-cover" />
+        ) : (
+          <Camera className="w-5 h-5 text-purple-400" />
+        )}
       </div>
-      <div className="text-left">
+      <div className="text-left flex-1 min-w-0">
         <p className={`text-xs font-semibold ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>
           View Handwritten Image Document
         </p>
-        <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+        <p className={`text-xs mt-1 truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           {submission.fileProofName || 'Click to view'}
         </p>
       </div>
@@ -492,10 +526,45 @@ export function AdminPanel() {
               </div>
             </div>
           )}
+
+          {/* Rejected submissions */}
+          {allSubmissions.filter((s) => s.status === 'Rejected').length > 0 && (
+            <div className={`${glass} p-5`}>
+              <h4 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-red-400' : 'text-red-700'}`}>
+                <XCircle className="w-4 h-4" />
+                Rejected Submissions ({allSubmissions.filter((s) => s.status === 'Rejected').length})
+              </h4>
+              <div className="space-y-2">
+                {allSubmissions.filter((s) => s.status === 'Rejected').slice(0, 8).map((sub) => (
+                  <div key={sub.submissionId} className={`flex items-start gap-3 p-3 rounded-lg ${isDark ? 'bg-red-500/10' : 'bg-red-50'}`}>
+                    <XCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>@{sub.username}</span>
+                        <span className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>—</span>
+                        <span className={`text-xs truncate ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{sub.topicTitle}</span>
+                      </div>
+                      {sub.rejectionFeedback && (
+                        <p className={`text-xs mt-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                          Reason: {sub.rejectionFeedback}
+                        </p>
+                      )}
+                    </div>
+                    {sub.submissionType === 'photo_document' && sub.fileProofUrl && (
+                      <button
+                        onClick={() => openLightbox(sub.fileProofUrl!, `Rejected Work - @${sub.username}`)}
+                        className={`flex-shrink-0 p-1.5 rounded-lg ${isDark ? 'hover:bg-white/10' : 'hover:bg-red-100'}`}
+                      >
+                        <Eye className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      {/* TAB B: Deposit Ledger Verification */}
       {activeTab === 'deposits' && (
         <div className="space-y-4">
           {queuedDeposits.length === 0 ? (

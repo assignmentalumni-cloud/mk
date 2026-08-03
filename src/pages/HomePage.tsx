@@ -1,7 +1,6 @@
-import { DollarSign, Users, Lock, TrendingUp, Crown, Zap, Mail, Globe, Award, Network } from 'lucide-react';
+import { Lock, Crown, Zap, Mail, Globe, Award, Network } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
-import { MetricCard } from '../components/MetricCard';
 import { DepositOverlay } from '../components/DepositOverlay';
 
 const SUPPORT_EMAIL = 'Assignmentalumni@gmail.com';
@@ -91,53 +90,6 @@ export function HomePage() {
         </div>
 
         <div className={`relative ${showDepositOverlay ? 'filter blur-md pointer-events-none select-none' : ''}`}>
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
-            <MetricCard
-              icon={<Lock className="w-6 h-6 text-neon-pink" />}
-              label="Active Escrow Tier Level"
-              value={isProfileActive ? (accountTier === 3 ? 'Tier III ($70)' : accountTier === 2 ? 'Tier II ($35)' : 'Tier I ($15)') : '--'}
-              badge={
-                isProfileActive ? (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-medium">
-                    <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                    Active
-                  </div>
-                ) : (
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${isDark ? 'bg-gray-500/20 text-gray-400' : 'bg-gray-200 text-gray-500'} text-xs font-medium`}>
-                    <Lock className="w-3 h-3" />Locked
-                  </div>
-                )
-              }
-            />
-            <MetricCard
-              icon={<DollarSign className="w-6 h-6 text-neon-pink" />}
-              label="Available Wallet Balance ($)"
-              value={`$${availableEarnings.toFixed(2)}`}
-              badge={availableEarnings > 0 ? <TrendingUp className={`w-4 h-4 ${isDark ? 'text-green-400' : 'text-green-500'}`} /> : null}
-              accent
-            />
-            <MetricCard
-              icon={<Users className="w-6 h-6 text-neon-pink" />}
-              label="Referral Tracker Loop"
-              value={`${currentCycleReferrals} / ${lifetimeWithdrawals === 0 ? 3 : 2}`}
-            />
-          </div>
-
-          {isProfileActive && (
-            <div className={`${glassClass} p-6`}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Academic Workspace</h3>
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${isDark ? 'bg-neon-pink/10' : 'bg-neon-pink/10'}`}>
-                  <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Daily Potential:</span>
-                  <span className="text-sm font-bold text-neon-pink">${totalDailyPayout.toFixed(2)}</span>
-                </div>
-              </div>
-              <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                You have {currentUserAssignments.length} assignment{currentUserAssignments.length !== 1 ? 's' : ''} available today. Head to the Working tab to complete them.
-              </p>
-            </div>
-          )}
-
           {!isProfileActive && (
             <div className={`${glassClass} p-6 text-center`}>
               <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>

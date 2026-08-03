@@ -1,7 +1,7 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import {
   User, Mail, Phone, Lock, ChevronDown, Upload, CheckCircle,
-  AlertCircle, X, FileText, Image as ImageIcon, Eye, Trash2,
+  AlertCircle, X, FileText,
   Shield, Wallet, DollarSign, Users, ArrowRight, Copy, AlertTriangle,
   Link2, Crown, Zap, Sparkles, Clock,
 } from 'lucide-react';
@@ -22,8 +22,6 @@ export function SettingsPage() {
     updateProfile,
     updatePassword,
     uploadAvatar,
-    uploadProofOfWork,
-    removeProofOfWork,
     submitDepositProof,
     requestCashout,
     pendingCashoutRequests,
@@ -45,12 +43,6 @@ export function SettingsPage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
-
-  // ── Proof of work upload state ──────────────────────────────────────────────
-  const [proofFiles, setProofFiles] = useState<File[]>([]);
-  const [isUploadingProof, setIsUploadingProof] = useState(false);
-  const [proofError, setProofError] = useState<string | null>(null);
-  const proofRef = useRef<HTMLInputElement>(null);
 
   // ── Deposit form state ───────────────────────────────────────────────────────
   const [selectedTier, setSelectedTier] = useState<1 | 2 | null>(null);
@@ -95,33 +87,6 @@ export function SettingsPage() {
     const reader = new FileReader();
     reader.onload = (e) => setAvatarPreview(e.target?.result as string);
     reader.readAsDataURL(f);
-  };
-
-  // ── Proof of work handlers ───────────────────────────────────────────────────
-  const handleProofFiles = (files: FileList | null) => {
-    if (!files) return;
-    const valid = Array.from(files).filter((f) =>
-      ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(f.type) ||
-      f.name.endsWith('.jpg') || f.name.endsWith('.png') || f.name.endsWith('.jpeg') || f.name.endsWith('.pdf')
-    );
-    setProofFiles((prev) => [...prev, ...valid]);
-    setProofError(null);
-  };
-
-  const removeProofFile = (idx: number) => {
-    setProofFiles((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const handleUploadProofs = async () => {
-    if (proofFiles.length === 0) return;
-    setIsUploadingProof(true);
-    const result = await uploadProofOfWork(proofFiles);
-    setIsUploadingProof(false);
-    if (result.success) {
-      setProofFiles([]);
-    } else {
-      setProofError(result.error || 'Upload failed.');
-    }
   };
 
   // ── Profile save handler ────────────────────────────────────────────────────
@@ -290,7 +255,7 @@ export function SettingsPage() {
           <div className="flex-1">
             <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Update Profile</h3>
             <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              Name, photo, mobile, email, password & proof of work
+              Name, photo, mobile, email & password
             </p>
           </div>
           <ChevronDown className={`w-5 h-5 transition-transform ${openSection === 'profile' ? 'rotate-180' : ''} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
@@ -420,94 +385,6 @@ export function SettingsPage() {
                   className={`${pInputClass()} pl-10`}
                 />
               </div>
-            </div>
-
-            {/* Proof of Work / Verification Upload */}
-            <div>
-              <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Proof of Work / Verification Upload
-              </label>
-              <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                Upload photos or PDF files of your work/assignment proofs. Admin will review them.
-              </p>
-
-              {/* Already uploaded proofs */}
-              {currentUser.proofOfWorkUrls && currentUser.proofOfWorkUrls.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
-                  {currentUser.proofOfWorkUrls.map((url, idx) => {
-                    const isPdf = url.toLowerCase().endsWith('.pdf');
-                    return (
-                      <div key={idx} className={`relative group rounded-xl overflow-hidden border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                        {isPdf ? (
-                          <a href={url} target="_blank" rel="noopener noreferrer" className={`flex flex-col items-center justify-center p-4 h-24 ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
-                            <FileText className="w-8 h-8 text-red-400 mb-1" />
-                            <span className={`text-xs truncate w-full text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>View PDF</span>
-                          </a>
-                        ) : (
-                          <a href={url} target="_blank" rel="noopener noreferrer" className="block h-24">
-                            <img src={url} alt={`Proof ${idx + 1}`} className="w-full h-full object-cover" />
-                          </a>
-                        )}
-                        <button
-                          onClick={() => removeProofOfWork(url)}
-                          className="absolute top-1 right-1 p-1 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Files to upload */}
-              {proofFiles.length > 0 && (
-                <div className="space-y-2 mb-3">
-                  {proofFiles.map((f, idx) => (
-                    <div key={idx} className={`flex items-center gap-2 p-2.5 rounded-lg ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
-                      {f.type.startsWith('image/') ? <ImageIcon className="w-4 h-4 text-blue-400 flex-shrink-0" /> : <FileText className="w-4 h-4 text-red-400 flex-shrink-0" />}
-                      <span className={`text-xs flex-1 truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{f.name}</span>
-                      <button onClick={() => removeProofFile(idx)} className={`p-1 rounded ${isDark ? 'hover:bg-white/10 text-gray-500' : 'hover:bg-gray-200 text-gray-400'}`}>
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    onClick={handleUploadProofs}
-                    disabled={isUploadingProof}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${isDark ? 'bg-neon-pink/20 hover:bg-neon-pink/30 text-neon-pink border border-neon-pink/20' : 'bg-neon-pink/10 hover:bg-neon-pink/20 text-neon-pink border border-neon-pink/20'} disabled:opacity-50`}
-                  >
-                    {isUploadingProof ? <Clock className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                    Upload {proofFiles.length} file{proofFiles.length !== 1 ? 's' : ''}
-                  </button>
-                </div>
-              )}
-
-              {proofError && <p className="text-xs text-red-400 mb-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{proofError}</p>}
-
-              {/* Drop zone */}
-              <div
-                onClick={() => proofRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
-                  isDark ? 'border-white/20 hover:border-neon-pink/40 hover:bg-white/5' : 'border-gray-300 hover:border-neon-pink/40 hover:bg-gray-50'
-                }`}
-              >
-                <Upload className={`w-7 h-7 mx-auto mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Click to upload proof files
-                </p>
-                <p className={`text-xs mt-1 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                  JPG, PNG, PDF accepted — multiple files allowed
-                </p>
-              </div>
-              <input
-                ref={proofRef}
-                type="file"
-                accept=".jpg,.jpeg,.png,.pdf"
-                multiple
-                className="hidden"
-                onChange={(e) => handleProofFiles(e.target.files)}
-              />
             </div>
 
             {/* Save button */}

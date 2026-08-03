@@ -262,6 +262,7 @@ interface GlobalContextType extends AppState {
     topicTitle: string,
     text: string,
     fileName: string | null,
+    fileProofUrl: string | null,
     submissionType: 'local_text' | 'photo_document',
     estimatedWordCount: number | null,
     charCount: number | null
@@ -628,7 +629,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
 
   const submitAssignment = useCallback(async (
     assignmentId: string, topicId: string, topicTitle: string,
-    text: string, fileName: string | null,
+    text: string, fileName: string | null, fileProofUrl: string | null,
     submissionType: 'local_text' | 'photo_document',
     estimatedWordCount: number | null,
     charCount: number | null
@@ -658,7 +659,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       supabase.from('submissions').insert([{
         id, user_id: currentUser.id, username: currentUser.username,
         topic_id: topicId, topic_title: topicTitle,
-        submitted_text: text, file_proof_name: fileName,
+        submitted_text: text, file_proof_name: fileName, file_proof_url: fileProofUrl,
         status: 'Submitted_Pending', calculated_payout: payout,
         submission_type: submissionType,
         estimated_word_count: estimatedWordCount,
@@ -675,6 +676,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     setSubmissions((prev) => [{
       submissionId: id, userId: currentUser.id, username: currentUser.username,
       topicId, topicTitle, submittedText: text, fileProofName: fileName,
+      fileProofUrl: fileProofUrl,
       status: 'Submitted_Pending', calculatedPayout: payout,
       submittedAt: newTimestamp,
       submissionType,

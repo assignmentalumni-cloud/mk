@@ -16,16 +16,21 @@ import {
   Camera,
   XCircle,
   MessageSquare,
+  AlertTriangle,
+  Image as ImageIcon,
+  ExternalLink,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
 import { WorkspaceLockout } from '../components/WorkspaceLockout';
+import { supabase } from '../lib/supabase';
 import type { SubmissionType } from '../types';
 
 interface UploadedFile {
   name: string;
   size: string;
   type: string;
+  file: File | null;
 }
 
 function wordCount(text: string): number {
@@ -61,6 +66,7 @@ export function WorkspacePage() {
   const [submissionMethod, setSubmissionMethod] = useState<SubmissionMethod>('local_text');
   const [photoFile, setPhotoFile] = useState<UploadedFile | null>(null);
   const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const glass = isDark ? 'glass-dark' : 'glass-light';
 
@@ -143,7 +149,8 @@ export function WorkspacePage() {
       file.name.endsWith('.jpg') || file.name.endsWith('.jpeg') ||
       file.name.endsWith('.png') || file.name.endsWith('.pdf')
     ) {
-      setPhotoFile({ name: file.name, size: `${formatFileSize(file.size).toFixed(1)} ${file.size < 1024 ? 'B' : file.size < 1048576 ? 'KB' : 'MB'}`, type: file.type });
+      setPhotoFile({ name: file.name, size: `${formatFileSize(file.size).toFixed(1)} ${file.size < 1024 ? 'B' : file.size < 1048576 ? 'KB' : 'MB'}`, type: file.type, file });
+      setUploadError(null);
     }
   };
 
@@ -159,7 +166,8 @@ export function WorkspacePage() {
     );
     if (dropped.length > 0) {
       const file = dropped[0];
-      setPhotoFile({ name: file.name, size: `${formatFileSize(file.size).toFixed(1)} ${file.size < 1024 ? 'B' : file.size < 1048576 ? 'KB' : 'MB'}`, type: file.type });
+      setPhotoFile({ name: file.name, size: `${formatFileSize(file.size).toFixed(1)} ${file.size < 1024 ? 'B' : file.size < 1048576 ? 'KB' : 'MB'}`, type: file.type, file });
+      setUploadError(null);
     }
   }, []);
 
@@ -168,12 +176,31 @@ export function WorkspacePage() {
   const handleSubmit = async (assignment: typeof currentUserAssignments[0]) => {
     if (!canSubmit || isSubmitting) return;
     setIsSubmitting(true);
+    setUploadError(null);
     try {
       const submissionType: SubmissionType = submissionMethod === 'local_text' ? 'local_text' : 'photo_document';
       const finalText = submissionMethod === 'local_text' ? content : `[Photo Document Submission: ${photoFile?.name}]`;
       const finalFileName = submissionMethod === 'photo_document' ? (photoFile?.name ?? null) : null;
-      const estimatedWc = null; // No longer used
+      const estimatedWc = null;
       const charCnt = submissionMethod === 'local_text' ? content.length : null;
+
+      let fileProofUrl: string | null = null;
+      if (submissionMethod === 'photo_document' && photoFile?.file) {
+        const ext = photoFile.file.name.split('.').pop() || 'bin';
+        const filePath = `${currentUser?.id}/${Date.now()}-${Math.random().toString(36).substr(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('proof-of-work')
+          .upload(filePath, photoFile.file);
+        if (upErr) {
+          setUploadError('Failed to upload file. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
+        const { data: pubData } = supabase.storage
+          .from('proof-of-work')
+          .getPublicUrl(filePath);
+        fileProofUrl = pubData.publicUrl;
+      }
 
       await submitAssignment(
         assignment.id,
@@ -181,6 +208,7 @@ export function WorkspacePage() {
         assignment.topicTitle,
         finalText,
         finalFileName,
+        fileProofUrl,
         submissionType,
         estimatedWc,
         charCnt
@@ -282,32 +310,41 @@ export function WorkspacePage() {
           </div>
         )}
 
-        {/* Rejected submissions feedback */}
+        {/* Rejected submissions feedback — prominent red alert banner */}
         {isProfileActive && currentUser && allSubmissions.filter((s) => s.userId === currentUser.id && s.status === 'Rejected').length > 0 && (
           <div className="mb-6 space-y-3">
             {allSubmissions
               .filter((s) => s.userId === currentUser.id && s.status === 'Rejected')
               .map((sub) => (
-                <div key={sub.submissionId} className={`rounded-xl p-4 border-2 ${isDark ? 'bg-red-500/10 border-red-500/40' : 'bg-red-50 border-red-200'}`}>
+                <div key={sub.submissionId} className="rounded-xl p-5 border-2 border-red-500 bg-red-500/10">
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg flex-shrink-0 ${isDark ? 'bg-red-500/20' : 'bg-red-100'}`}>
-                      <XCircle className="w-5 h-5 text-red-400" />
+                    <div className="p-2.5 rounded-lg flex-shrink-0 bg-red-500/20">
+                      <XCircle className="w-6 h-6 text-red-400" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-bold text-red-400">Submission Rejected</p>
-                      <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <p className="text-base font-bold text-red-400 uppercase tracking-wide">
+                        YOUR WORK HAS BEEN REJECTED
+                      </p>
+                      <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                         Topic: {sub.topicTitle}
                       </p>
                       {sub.rejectionFeedback && (
-                        <div className={`mt-2 p-3 rounded-lg flex items-start gap-2 ${isDark ? 'bg-white/5' : 'bg-white'}`}>
+                        <div className={`mt-3 p-3 rounded-lg flex items-start gap-2 ${isDark ? 'bg-white/5' : 'bg-white'}`}>
                           <MessageSquare className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                          <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                          <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                            <span className="font-semibold text-red-400">Reason: </span>
                             {sub.rejectionFeedback}
                           </p>
                         </div>
                       )}
+                      <div className={`mt-3 flex items-center gap-2 p-3 rounded-lg ${isDark ? 'bg-neon-pink/10 border border-neon-pink/20' : 'bg-pink-50 border border-pink-200'}`}>
+                        <AlertTriangle className="w-4 h-4 text-neon-pink flex-shrink-0" />
+                        <p className={`text-xs font-medium ${isDark ? 'text-neon-pink' : 'text-pink-700'}`}>
+                          Please re-upload clear photos of your handwritten work to resubmit.
+                        </p>
+                      </div>
                       <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                        This assignment is now available for resubmission.
+                        This assignment is now available for resubmission below.
                       </p>
                     </div>
                   </div>

@@ -266,10 +266,11 @@ export function ReferralPage() {
           </div>
         </div>
 
-        {/* QR Code + Referral Link */}
+        {/* QR Code + Referral Link + Reward Banner — centered vertical column */}
         <div className={`${glass} p-6 mb-6`}>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className={`rounded-xl p-5 flex flex-col items-center justify-center mx-auto ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+          <div className="flex flex-col items-center justify-center space-y-4 max-w-md mx-auto">
+            {/* QR Code */}
+            <div className={`rounded-xl p-5 flex flex-col items-center justify-center w-full ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
               <div className="inline-block p-3 rounded-xl bg-white shadow-lg mb-3">
                 <QRCodeSVG value={referralLink} size={140} level="H" includeMargin={false} bgColor="#ffffff" fgColor="#000000" />
               </div>
@@ -278,11 +279,12 @@ export function ReferralPage() {
               </p>
             </div>
 
-            <div className={`rounded-xl p-5 flex flex-col justify-center ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
-              <p className={`text-xs font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            {/* Referral Link */}
+            <div className={`rounded-xl p-5 w-full ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+              <p className={`text-xs font-medium mb-2 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Your Unique Referral Link
               </p>
-              <div className={`w-full max-w-full flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-black/30' : 'bg-white'} border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              <div className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-black/30' : 'bg-white'} border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
                 <Link2 className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
                 <code className={`text-xs flex-1 min-w-0 truncate overflow-hidden text-ellipsis ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
                   {referralLink}
@@ -298,18 +300,19 @@ export function ReferralPage() {
                     : <Copy className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />}
                 </button>
               </div>
+            </div>
 
-              <div className={`mt-4 rounded-xl p-3 flex items-center gap-2 border-2 ${
-                isDark
-                  ? 'bg-gradient-to-r from-yellow-500/10 to-green-500/10 border-yellow-500/30'
-                  : 'bg-gradient-to-r from-yellow-50 to-green-50 border-yellow-200'
-              }`}>
-                <Gift className="w-5 h-5 text-yellow-400 flex-shrink-0" />
-                <p className={`text-xs font-bold ${isDark ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                  Earn $5.00 for every referral who completes their deposit!
-                </p>
-                <Sparkles className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-yellow-400' : 'text-yellow-500'}`} />
-              </div>
+            {/* Reward Banner */}
+            <div className={`w-full rounded-xl p-3 flex items-center justify-center gap-2 border-2 ${
+              isDark
+                ? 'bg-gradient-to-r from-yellow-500/10 to-green-500/10 border-yellow-500/30'
+                : 'bg-gradient-to-r from-yellow-50 to-green-50 border-yellow-200'
+            }`}>
+              <Gift className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+              <p className={`text-xs font-bold text-center ${isDark ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                Earn $5.00 for every referral who completes their deposit!
+              </p>
+              <Sparkles className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-yellow-400' : 'text-yellow-500'}`} />
             </div>
           </div>
         </div>
