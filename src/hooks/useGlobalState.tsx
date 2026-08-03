@@ -50,6 +50,7 @@ interface DbUser {
   last_submissions_ledger: string[];
   invited_by: string | null;
   lifetime_withdrawals: number;
+  proof_of_work_urls: string[] | null;
   created_at: string;
 }
 
@@ -155,6 +156,7 @@ function mapUser(row: DbUser): User {
     lastSubmissionsLedger: Array.isArray(row.last_submissions_ledger) ? row.last_submissions_ledger : [],
     invitedBy: row.invited_by ?? null,
     lifetimeWithdrawals: row.lifetime_withdrawals ?? 0,
+    proofOfWorkUrls: Array.isArray(row.proof_of_work_urls) ? row.proof_of_work_urls : [],
     createdAt: row.created_at,
   };
 }
@@ -279,6 +281,9 @@ interface GlobalContextType extends AppState {
   setViewMode(mode: 'user' | 'admin'): void;
   uploadAvatar(avatarUrl: string): Promise<void>;
   updateProfile(fullName: string, email: string, phone: string): Promise<{ success: boolean; error?: string }>;
+  updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }>;
+  uploadProofOfWork(files: File[]): Promise<{ success: boolean; error?: string }>;
+  removeProofOfWork(url: string): Promise<void>;
   getUserById(userId: string): User | undefined;
   getPendingReferrals(username: string): { username: string; status: 'pending' | 'active'; createdAt: string }[];
   getActiveReferrals(username: string): { username: string; status: 'pending' | 'active'; createdAt: string }[];
@@ -440,6 +445,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
             lastSubmissionsLedger: data.last_submissions_ledger || [],
             invitedBy: data.invited_by,
             lifetimeWithdrawals: data.lifetime_withdrawals ?? 0,
+            proofOfWorkUrls: Array.isArray(data.proof_of_work_urls) ? data.proof_of_work_urls : [],
             createdAt: data.created_at,
           };
         }
@@ -475,7 +481,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
         id, username, password, fullName, email,
         depositTier: 0, availableEarnings: 0,
         currentCycleReferrals: 0, completedTopicIds: [],
-        activationStatus: null, avatarUrl: null, phone: null, lastSubmissionsLedger: [],
+        activationStatus: null, avatarUrl: null, phone: null, lastSubmissionsLedger: [], proofOfWorkUrls: [],
         invitedBy, lifetimeWithdrawals: 0,
         createdAt: new Date().toISOString(),
       }]);
@@ -966,6 +972,65 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     }
   }, [currentUser]);
 
+  const updatePassword = useCallback(async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) return { success: false, error: 'Not logged in.' };
+    if (newPassword.length < 6) return { success: false, error: 'Password must be at least 6 characters.' };
+    try {
+      const { error } = await supabase.from('users')
+        .update({ password: newPassword })
+        .eq('id', currentUser.id);
+      if (error) return { success: false, error: 'Failed to update password.' };
+      setUsers((prev) => prev.map((u) =>
+        u.id === currentUser.id ? { ...u, password: newPassword } : u
+      ));
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Failed to update password.' };
+    }
+  }, [currentUser]);
+
+  const uploadProofOfWork = useCallback(async (files: File[]): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) return { success: false, error: 'Not logged in.' };
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of files) {
+        const ext = file.name.split('.').pop() || 'bin';
+        const filePath = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).substr(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('proof-of-work')
+          .upload(filePath, file);
+        if (upErr) { console.error(upErr); continue; }
+        const { data: pubData } = supabase.storage
+          .from('proof-of-work')
+          .getPublicUrl(filePath);
+        uploadedUrls.push(pubData.publicUrl);
+      }
+      if (uploadedUrls.length === 0) return { success: false, error: 'Failed to upload files.' };
+      const newUrls = [...(currentUser.proofOfWorkUrls || []), ...uploadedUrls];
+      const { error: dbErr } = await supabase.from('users')
+        .update({ proof_of_work_urls: newUrls })
+        .eq('id', currentUser.id);
+      if (dbErr) return { success: false, error: 'Failed to save proof URLs.' };
+      setUsers((prev) => prev.map((u) =>
+        u.id === currentUser.id ? { ...u, proofOfWorkUrls: newUrls } : u
+      ));
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Failed to upload proof of work.' };
+    }
+  }, [currentUser]);
+
+  const removeProofOfWork = useCallback(async (url: string): Promise<void> => {
+    if (!currentUser) return;
+    const newUrls = (currentUser.proofOfWorkUrls || []).filter((u) => u !== url);
+    await supabase.from('users')
+      .update({ proof_of_work_urls: newUrls })
+      .eq('id', currentUser.id);
+    setUsers((prev) => prev.map((u) =>
+      u.id === currentUser.id ? { ...u, proofOfWorkUrls: newUrls } : u
+    ));
+  }, [currentUser]);
+
   // ── Context value ─────────────────────────────────────────────────────────────
 
   const value: GlobalContextType = useMemo(() => ({
@@ -990,6 +1055,9 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     refreshCurrentUser, refreshAssignments, refreshAll,
     uploadAvatar,
     updateProfile,
+    updatePassword,
+    uploadProofOfWork,
+    removeProofOfWork,
     claimLevelReward, approveLevelClaim, rejectLevelClaim,
   }), [
     users, submissions, cashouts, deposits, currentUserId, viewMode,
@@ -1006,6 +1074,9 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     refreshCurrentUser, refreshAssignments, refreshAll,
     uploadAvatar,
     updateProfile,
+    updatePassword,
+    uploadProofOfWork,
+    removeProofOfWork,
     claimLevelReward, approveLevelClaim, rejectLevelClaim,
   ]);
 

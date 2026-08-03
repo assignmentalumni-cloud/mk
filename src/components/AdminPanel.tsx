@@ -3,7 +3,7 @@ import {
   CheckCircle, XCircle, Users, DollarSign, FileText, Lock,
   Crown, Zap, Clock, ChevronDown, ShieldCheck, RefreshCw,
   PlusCircle, Settings, Inbox, Wallet, ExternalLink,
-  Camera, PenLine, Hash, Link2, Copy, X, ImageIcon,
+  Camera, PenLine, Hash, Link2, Copy, X, ImageIcon, Eye,
   Award, Sparkles, TrendingUp,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
@@ -663,6 +663,38 @@ export function AdminPanel() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Proof of Work uploads */}
+                    {user.proofOfWorkUrls && user.proofOfWorkUrls.length > 0 && (
+                      <div className={`mt-3 pt-3 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+                        <p className={`text-xs font-semibold mb-2 flex items-center gap-1.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          <FileText className="w-3.5 h-3.5" />
+                          Proof of Work ({user.proofOfWorkUrls.length})
+                        </p>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {user.proofOfWorkUrls.map((url, pIdx) => {
+                            const isPdf = url.toLowerCase().endsWith('.pdf');
+                            return isPdf ? (
+                              <a key={pIdx} href={url} target="_blank" rel="noopener noreferrer"
+                                className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${isDark ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/20' : 'bg-red-50 border-red-200 hover:bg-red-100'}`}>
+                                <FileText className="w-5 h-5 text-red-400 mb-1" />
+                                <span className={`text-xs truncate w-full text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>PDF</span>
+                                <ExternalLink className={`w-3 h-3 mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                              </a>
+                            ) : (
+                              <button key={pIdx} onClick={() => openLightbox(url, `Proof of Work - @${user.username}`)}
+                                className={`relative group rounded-lg overflow-hidden border transition-all ${isDark ? 'border-white/10 hover:border-neon-pink/40' : 'border-gray-200 hover:border-neon-pink/40'}`}>
+                                <img src={url} alt={`Proof ${pIdx + 1}`} className="w-full h-16 object-cover" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                                  <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div className={`mt-3 pt-3 border-t ${isDark ? 'border-white/10' : 'border-gray-200'} flex items-center gap-2 flex-wrap`}>
                       <span className={`text-xs font-semibold flex items-center gap-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}><Settings className="w-3 h-3" />Dev:</span>
                       <button onClick={() => act(user.id + '_ref', () => addReferral(user.id))} disabled={isRefBusy || user.currentCycleReferrals >= 2}

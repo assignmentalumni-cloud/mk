@@ -60,6 +60,7 @@ export interface User {
   lastSubmissionsLedger: string[];
   invitedBy: string | null;
   lifetimeWithdrawals: number;
+  proofOfWorkUrls: string[];
   createdAt: string;
 }
 
