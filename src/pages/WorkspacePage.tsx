@@ -70,6 +70,31 @@ export function WorkspacePage() {
   }, [refreshAssignments]);
 
   if (!isProfileActive) {
+    const isProfileComplete =
+      !!currentUser?.fullName?.trim() &&
+      !!currentUser?.email?.trim() &&
+      !!currentUser?.phone?.trim() &&
+      !!currentUser?.avatarUrl;
+
+    if (!isProfileComplete) {
+      return (
+        <div className={`min-h-screen ${isDark ? 'bg-cosmic-midnight' : 'bg-ivory'} flex items-center justify-center px-4`}>
+          <div className={`${glass} p-6 max-w-md w-full text-center`}>
+            <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 ${isDark ? 'bg-yellow-500/20' : 'bg-yellow-100'}`}>
+              <Lock className="w-7 h-7 text-yellow-400" />
+            </div>
+            <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Profile Incomplete</h2>
+            <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              You must set your Name, Email, Phone Number, and Profile Picture in Settings to unlock academic assignments.
+            </p>
+            <button onClick={() => navigate('/settings')} className={isDark ? 'btn-neon-dark' : 'btn-neon-light'}>
+              Go to Settings
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className={`min-h-screen ${isDark ? 'bg-cosmic-midnight' : 'bg-ivory'} flex items-center justify-center`}>
         <div className={`${glass} p-8 max-w-md text-center`}>

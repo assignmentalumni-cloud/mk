@@ -57,7 +57,7 @@ export function ReferralPage() {
   };
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-cosmic-midnight' : 'bg-ivory'} pt-24 pb-28 md:pb-12 px-4`}>
+    <div className={`min-h-screen ${isDark ? 'bg-cosmic-midnight' : 'bg-ivory'} pt-24 pb-28 md:pb-12 px-4 overflow-x-hidden`}>
       <div className="max-w-4xl mx-auto relative z-10 mt-6">
         <div className="text-center mb-8">
           <h1 className={`text-3xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -269,11 +269,11 @@ export function ReferralPage() {
         {/* QR Code + Referral Link */}
         <div className={`${glass} p-6 mb-6`}>
           <div className="grid md:grid-cols-2 gap-6">
-            <div className={`rounded-xl p-5 text-center ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+            <div className={`rounded-xl p-5 flex flex-col items-center justify-center mx-auto ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
               <div className="inline-block p-3 rounded-xl bg-white shadow-lg mb-3">
                 <QRCodeSVG value={referralLink} size={140} level="H" includeMargin={false} bgColor="#ffffff" fgColor="#000000" />
               </div>
-              <p className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-xs font-medium text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 Scan QR to join network node
               </p>
             </div>
@@ -282,9 +282,9 @@ export function ReferralPage() {
               <p className={`text-xs font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Your Unique Referral Link
               </p>
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-black/30' : 'bg-white'} border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              <div className={`w-full max-w-full flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-black/30' : 'bg-white'} border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
                 <Link2 className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                <code className={`text-xs flex-1 truncate ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+                <code className={`text-xs flex-1 min-w-0 truncate overflow-hidden text-ellipsis ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
                   {referralLink}
                 </code>
                 <button

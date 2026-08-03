@@ -56,6 +56,7 @@ export interface User {
   completedTopicIds: string[];
   activationStatus: ActivationStatus;
   avatarUrl: string | null;
+  phone: string | null;
   lastSubmissionsLedger: string[];
   invitedBy: string | null;
   lifetimeWithdrawals: number;

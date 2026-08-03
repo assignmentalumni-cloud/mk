@@ -46,6 +46,7 @@ interface DbUser {
   completed_topic_ids: string[];
   activation_status: string | null;
   avatar_url: string | null;
+  phone: string | null;
   last_submissions_ledger: string[];
   invited_by: string | null;
   lifetime_withdrawals: number;
@@ -150,6 +151,7 @@ function mapUser(row: DbUser): User {
     completedTopicIds: Array.isArray(row.completed_topic_ids) ? row.completed_topic_ids : [],
     activationStatus: (row.activation_status as ActivationStatus) ?? null,
     avatarUrl: row.avatar_url ?? null,
+    phone: row.phone ?? null,
     lastSubmissionsLedger: Array.isArray(row.last_submissions_ledger) ? row.last_submissions_ledger : [],
     invitedBy: row.invited_by ?? null,
     lifetimeWithdrawals: row.lifetime_withdrawals ?? 0,
@@ -276,6 +278,7 @@ interface GlobalContextType extends AppState {
   forceSetTier(userId: string, tier: AccountTier): Promise<void>;
   setViewMode(mode: 'user' | 'admin'): void;
   uploadAvatar(avatarUrl: string): Promise<void>;
+  updateProfile(fullName: string, email: string, phone: string): Promise<{ success: boolean; error?: string }>;
   getUserById(userId: string): User | undefined;
   getPendingReferrals(username: string): { username: string; status: 'pending' | 'active'; createdAt: string }[];
   getActiveReferrals(username: string): { username: string; status: 'pending' | 'active'; createdAt: string }[];
@@ -464,7 +467,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
         id, username, password, full_name: fullName, email,
         deposit_tier: 0, available_earnings: 0,
         current_cycle_referrals: 0, completed_topic_ids: [],
-        avatar_url: null, activation_status: null, last_submissions_ledger: [],
+        avatar_url: null, phone: null, activation_status: null, last_submissions_ledger: [],
         invited_by: invitedBy, lifetime_withdrawals: 0,
       }]);
       if (error) return { success: false, error: 'Failed to create account.' };
@@ -472,7 +475,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
         id, username, password, fullName, email,
         depositTier: 0, availableEarnings: 0,
         currentCycleReferrals: 0, completedTopicIds: [],
-        activationStatus: null, avatarUrl: null, lastSubmissionsLedger: [],
+        activationStatus: null, avatarUrl: null, phone: null, lastSubmissionsLedger: [],
         invitedBy, lifetimeWithdrawals: 0,
         createdAt: new Date().toISOString(),
       }]);
@@ -947,6 +950,22 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     ));
   }, [currentUser]);
 
+  const updateProfile = useCallback(async (fullName: string, email: string, phone: string): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) return { success: false, error: 'Not logged in.' };
+    try {
+      const { error } = await supabase.from('users')
+        .update({ full_name: fullName, email, phone })
+        .eq('id', currentUser.id);
+      if (error) return { success: false, error: 'Failed to update profile.' };
+      setUsers((prev) => prev.map((u) =>
+        u.id === currentUser.id ? { ...u, fullName, email, phone } : u
+      ));
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Failed to update profile.' };
+    }
+  }, [currentUser]);
+
   // ── Context value ─────────────────────────────────────────────────────────────
 
   const value: GlobalContextType = useMemo(() => ({
@@ -970,6 +989,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     setViewMode, getUserById, getPendingReferrals, getActiveReferrals,
     refreshCurrentUser, refreshAssignments, refreshAll,
     uploadAvatar,
+    updateProfile,
     claimLevelReward, approveLevelClaim, rejectLevelClaim,
   }), [
     users, submissions, cashouts, deposits, currentUserId, viewMode,
@@ -985,6 +1005,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     setViewMode, getUserById, getPendingReferrals, getActiveReferrals,
     refreshCurrentUser, refreshAssignments, refreshAll,
     uploadAvatar,
+    updateProfile,
     claimLevelReward, approveLevelClaim, rejectLevelClaim,
   ]);
 
