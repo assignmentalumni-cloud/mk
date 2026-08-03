@@ -18,6 +18,7 @@ export function HomePage() {
 
   const availableEarnings = currentUser?.availableEarnings ?? 0;
   const currentCycleReferrals = currentUser?.currentCycleReferrals ?? 0;
+  const lifetimeWithdrawals = currentUser?.lifetimeWithdrawals ?? 0;
   const accountTier = currentUser?.depositTier ?? 0;
 
   const showDepositOverlay =
