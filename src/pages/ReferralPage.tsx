@@ -266,10 +266,10 @@ export function ReferralPage() {
           </div>
         </div>
 
-        {/* QR Code + Referral Link + Reward Banner — centered vertical column */}
+        {/* QR Code + Referral Link + Reward Banner — QR left, link underneath */}
         <div className={`${glass} p-6 mb-6`}>
-          <div className="flex flex-col items-center justify-center space-y-4 max-w-md mx-auto">
-            {/* QR Code */}
+          <div className="flex flex-col items-start gap-4 max-w-md mx-auto md:mx-0">
+            {/* QR Code — left aligned */}
             <div className={`rounded-xl p-5 flex flex-col items-center justify-center w-full ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
               <div className="inline-block p-3 rounded-xl bg-white shadow-lg mb-3">
                 <QRCodeSVG value={referralLink} size={140} level="H" includeMargin={false} bgColor="#ffffff" fgColor="#000000" />
@@ -279,9 +279,9 @@ export function ReferralPage() {
               </p>
             </div>
 
-            {/* Referral Link */}
+            {/* Referral Link — directly underneath QR, full width */}
             <div className={`rounded-xl p-5 w-full ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
-              <p className={`text-xs font-medium mb-2 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-xs font-medium mb-2 text-left ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Your Unique Referral Link
               </p>
               <div className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-black/30' : 'bg-white'} border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>

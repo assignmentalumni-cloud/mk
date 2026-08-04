@@ -18,6 +18,7 @@ import type {
   ActivationStatus,
   LevelClaim,
   LevelClaimStatus,
+  PenaltyTransaction,
 } from '../types';
 import { TIER_CONFIG, REFERRAL_LEVELS } from '../types';
 import { supabase } from '../lib/supabase';
@@ -171,6 +172,7 @@ function mapSubmission(row: DbSubmission): Submission {
     submittedText: row.submitted_text,
     fileProofName: row.file_proof_name,
     fileProofUrl: row.file_proof_url ?? null,
+    proofUrls: Array.isArray((row as Record<string, unknown>).proof_urls) ? (row as Record<string, unknown>).proof_urls as string[] : [],
     status: row.status as Submission['status'],
     calculatedPayout: Number(row.calculated_payout),
     submittedAt: row.submitted_at,
@@ -265,8 +267,11 @@ interface GlobalContextType extends AppState {
     fileProofUrl: string | null,
     submissionType: 'local_text' | 'photo_document',
     estimatedWordCount: number | null,
-    charCount: number | null
+    charCount: number | null,
+    proofUrls?: string[]
   ): Promise<void>;
+  deductFine(userId: string, amount: number, reason?: string): Promise<{ success: boolean; error?: string }>;
+  penaltyTransactions: PenaltyTransaction[];
   approveSubmission(submissionId: string): Promise<void>;
   rejectSubmission(submissionId: string, feedback?: string): Promise<void>;
   requestCashout(
@@ -632,7 +637,8 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     text: string, fileName: string | null, fileProofUrl: string | null,
     submissionType: 'local_text' | 'photo_document',
     estimatedWordCount: number | null,
-    charCount: number | null
+    charCount: number | null,
+    proofUrls?: string[]
   ) => {
     if (!currentUser) return;
 
@@ -660,6 +666,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
         id, user_id: currentUser.id, username: currentUser.username,
         topic_id: topicId, topic_title: topicTitle,
         submitted_text: text, file_proof_name: fileName, file_proof_url: fileProofUrl,
+        proof_urls: proofUrls && proofUrls.length > 0 ? proofUrls : null,
         status: 'Submitted_Pending', calculated_payout: payout,
         submission_type: submissionType,
         estimated_word_count: estimatedWordCount,
@@ -677,6 +684,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       submissionId: id, userId: currentUser.id, username: currentUser.username,
       topicId, topicTitle, submittedText: text, fileProofName: fileName,
       fileProofUrl: fileProofUrl,
+      proofUrls: proofUrls ?? [],
       status: 'Submitted_Pending', calculatedPayout: payout,
       submittedAt: newTimestamp,
       submissionType,
@@ -961,16 +969,26 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = useCallback(async (fullName: string, email: string, phone: string): Promise<{ success: boolean; error?: string }> => {
     if (!currentUser) return { success: false, error: 'Not logged in.' };
     try {
-      const { error } = await supabase.from('users')
+      const { data, error } = await supabase.from('users')
         .update({ full_name: fullName, email, phone })
-        .eq('id', currentUser.id);
-      if (error) return { success: false, error: 'Failed to update profile.' };
+        .eq('id', currentUser.id)
+        .select('*')
+        .maybeSingle();
+      if (error) {
+        console.error('Profile update error:', error.message, error.code, error.details);
+        return { success: false, error: error.message || 'Failed to update profile.' };
+      }
       setUsers((prev) => prev.map((u) =>
         u.id === currentUser.id ? { ...u, fullName, email, phone } : u
       ));
+      if (data) {
+        const mapped = mapUser(data as DbUser);
+        setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? mapped : u)));
+      }
       return { success: true };
-    } catch {
-      return { success: false, error: 'Failed to update profile.' };
+    } catch (err) {
+      console.error('Profile update exception:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to update profile.' };
     }
   }, [currentUser]);
 
@@ -990,6 +1008,29 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       return { success: false, error: 'Failed to update password.' };
     }
   }, [currentUser]);
+
+  const [penaltyTransactions, setPenaltyTransactions] = useState<PenaltyTransaction[]>([]);
+
+  const deductFine = useCallback(async (userId: string, amount: number, reason?: string): Promise<{ success: boolean; error?: string }> => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return { success: false, error: 'User not found.' };
+    if (amount <= 0) return { success: false, error: 'Fine amount must be greater than zero.' };
+    const newBalance = Math.max(0, user.availableEarnings - amount);
+    const penaltyId = `pen-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const now = new Date().toISOString();
+    const [penaltyRes, userRes] = await Promise.all([
+      supabase.from('penalty_transactions').insert([{
+        id: penaltyId, user_id: userId, username: user.username,
+        amount, reason: reason ?? null, created_at: now,
+      }]),
+      supabase.from('users').update({ available_earnings: newBalance }).eq('id', userId),
+    ]);
+    if (penaltyRes.error) { console.error('Penalty insert error:', penaltyRes.error); return { success: false, error: penaltyRes.error.message }; }
+    if (userRes.error) { console.error('Balance deduction error:', userRes.error); return { success: false, error: userRes.error.message }; }
+    setPenaltyTransactions((prev) => [{ id: penaltyId, userId, username: user.username, amount, reason: reason ?? null, createdAt: now }, ...prev]);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, availableEarnings: newBalance } : u)));
+    return { success: true };
+  }, [users]);
 
   const uploadProofOfWork = useCallback(async (files: File[]): Promise<{ success: boolean; error?: string }> => {
     if (!currentUser) return { success: false, error: 'Not logged in.' };
@@ -1060,6 +1101,8 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     updatePassword,
     uploadProofOfWork,
     removeProofOfWork,
+    deductFine,
+    penaltyTransactions,
     claimLevelReward, approveLevelClaim, rejectLevelClaim,
   }), [
     users, submissions, cashouts, deposits, currentUserId, viewMode,
@@ -1079,6 +1122,8 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
     updatePassword,
     uploadProofOfWork,
     removeProofOfWork,
+    deductFine,
+    penaltyTransactions,
     claimLevelReward, approveLevelClaim, rejectLevelClaim,
   ]);
 

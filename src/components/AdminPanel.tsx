@@ -4,7 +4,7 @@ import {
   Crown, Zap, Clock, ChevronDown, ShieldCheck, RefreshCw,
   PlusCircle, Settings, Inbox, Wallet, ExternalLink,
   Camera, PenLine, Hash, Link2, Copy, X, ImageIcon, Eye,
-  Award, Sparkles, TrendingUp, Phone, Mail,
+  Award, Sparkles, TrendingUp, Phone, Mail, AlertTriangle, AlertCircle,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
@@ -134,67 +134,61 @@ const PhotoDocumentThumbnail = memo(function PhotoDocumentThumbnail({
 
   if (submission.submissionType !== 'photo_document') return null;
 
-  const imageUrl = submission.fileProofUrl || `https://assignmentalumni.com/uploads/${submission.fileProofName}`;
-  const isPdf = imageUrl.toLowerCase().endsWith('.pdf');
-
-  if (isPdf) {
-    return (
-      <a
-        href={imageUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-          isDark ? 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/30' : 'bg-red-50 hover:bg-red-100 border border-red-200'
-        }`}
-      >
-        <div
-          className="w-[60px] h-[40px] rounded-lg overflow-hidden flex items-center justify-center"
-          style={{ background: isDark ? 'rgba(239, 68, 68, 0.2)' : 'white' }}
-        >
-          <FileText className="w-5 h-5 text-red-400" />
-        </div>
-        <div className="text-left flex-1">
-          <p className={`text-xs font-semibold ${isDark ? 'text-red-400' : 'text-red-700'}`}>
-            View PDF Document
-          </p>
-          <p className={`text-xs mt-1 truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            {submission.fileProofName || 'Click to view'}
-          </p>
-        </div>
-        <ExternalLink className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-      </a>
-    );
+  const allUrls: string[] = [];
+  if (Array.isArray(submission.proofUrls) && submission.proofUrls.length > 0) {
+    allUrls.push(...submission.proofUrls);
+  } else if (submission.fileProofUrl) {
+    allUrls.push(submission.fileProofUrl);
+  } else if (submission.fileProofName) {
+    allUrls.push(`https://assignmentalumni.com/uploads/${submission.fileProofName}`);
   }
 
+  if (allUrls.length === 0) return null;
+
   return (
-    <button
-      onClick={() => onPreview(imageUrl)}
-      className={`flex items-center gap-3 p-3 rounded-xl transition-all w-full text-left ${
-        isDark ? 'bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30' : 'bg-purple-50 hover:bg-purple-100 border border-purple-200'
-      }`}
-    >
-      <div
-        className="w-[60px] h-[60px] rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
-        style={{
-          boxShadow: isDark ? '0 0 15px rgba(168, 85, 247, 0.3)' : 'none',
-          background: isDark ? 'rgba(168, 85, 247, 0.2)' : 'white',
-        }}
-      >
-        {imageUrl.startsWith('http') && !imageUrl.includes('assignmentalumni.com') ? (
-          <img src={imageUrl} alt="Handwritten work" className="w-full h-full object-cover" />
-        ) : (
-          <Camera className="w-5 h-5 text-purple-400" />
-        )}
+    <div className="space-y-2">
+      <p className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+        Submitted Photos ({allUrls.length})
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        {allUrls.map((url, idx) => {
+          const isPdf = url.toLowerCase().endsWith('.pdf');
+          if (isPdf) {
+            return (
+              <a
+                key={idx}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`relative group rounded-lg overflow-hidden border transition-all ${isDark ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/20' : 'bg-red-50 border-red-200 hover:bg-red-100'}`}
+              >
+                <div className="w-full h-24 flex flex-col items-center justify-center gap-1">
+                  <FileText className="w-7 h-7 text-red-400" />
+                  <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>PDF Doc {idx + 1}</span>
+                </div>
+                <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs font-bold bg-black/60 text-white">{idx + 1}</div>
+              </a>
+            );
+          }
+          return (
+            <button
+              key={idx}
+              onClick={() => onPreview(url)}
+              className={`relative group rounded-lg overflow-hidden border transition-all ${isDark ? 'border-white/10 hover:border-neon-pink/40' : 'border-gray-200 hover:border-neon-pink/40'}`}
+            >
+              <img src={url} alt={`Proof ${idx + 1}`} className="w-full h-24 object-cover" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs font-bold bg-black/60 text-white">{idx + 1}</div>
+            </button>
+          );
+        })}
       </div>
-      <div className="text-left flex-1 min-w-0">
-        <p className={`text-xs font-semibold ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>
-          View Handwritten Image Document
-        </p>
-        <p className={`text-xs mt-1 truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          {submission.fileProofName || 'Click to view'}
-        </p>
-      </div>
-    </button>
+      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+        Click any photo to view full-size for review.
+      </p>
+    </div>
   );
 });
 
@@ -232,6 +226,7 @@ export function AdminPanel() {
     declineDeposit,
     addReferral,
     forceSetTier,
+    deductFine,
     getUserById,
     refreshAll,
     levelClaims,
@@ -248,6 +243,12 @@ export function AdminPanel() {
   const [lightboxTitle, setLightboxTitle] = useState<string | undefined>();
   const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
   const [profileSlipUser, setProfileSlipUser] = useState<User | null>(null);
+  const [fineUser, setFineUser] = useState<User | null>(null);
+  const [fineAmount, setFineAmount] = useState('10');
+  const [fineReason, setFineReason] = useState('ChatGPT / AI content detected');
+  const [fineProcessing, setFineProcessing] = useState(false);
+  const [fineError, setFineError] = useState<string | null>(null);
+  const [fineSuccess, setFineSuccess] = useState(false);
 
   const glass = isDark ? 'glass-dark' : 'glass-light';
 
@@ -773,6 +774,13 @@ export function AdminPanel() {
                         <Eye className="w-3 h-3" />
                         View Profile Slip
                       </button>
+                      <button
+                        onClick={() => { setFineUser(user); setFineAmount('10'); setFineReason('ChatGPT / AI content detected'); setFineError(null); setFineSuccess(false); }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDark ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/20' : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'}`}
+                      >
+                        <AlertTriangle className="w-3 h-3" />
+                        Deduct Fine
+                      </button>
                       <span className={`text-xs font-semibold flex items-center gap-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}><Settings className="w-3 h-3" />Dev:</span>
                       <button onClick={() => act(user.id + '_ref', () => addReferral(user.id))} disabled={isRefBusy || user.currentCycleReferrals >= 2}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50 ${user.currentCycleReferrals >= 2 ? isDark ? 'bg-white/5 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed' : isDark ? 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'}`}>
@@ -801,6 +809,155 @@ export function AdminPanel() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fine / Penalty Modal */}
+      {fineUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => !fineProcessing && setFineUser(null)}
+        >
+          <div
+            className={`relative max-w-md w-full rounded-2xl overflow-hidden shadow-2xl ${isDark ? 'bg-gray-900 border border-white/10' : 'bg-white border border-gray-200'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-red-500/20 to-orange-500/20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+                <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Deduct Fine / Penalty</span>
+              </div>
+              <button
+                onClick={() => !fineProcessing && setFineUser(null)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                <X className="w-4 h-4" />
+                Close
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              {/* User info */}
+              <div className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+                <div className={`w-10 h-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
+                  {fineUser.avatarUrl ? (
+                    <img src={fineUser.avatarUrl} alt={fineUser.fullName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className={`text-sm font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{fineUser.fullName.slice(0, 2).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{fineUser.fullName}</p>
+                  <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>@{fineUser.username}</p>
+                </div>
+                <div className={`ml-auto text-right ${isDark ? 'bg-neon-pink/10 border border-neon-pink/20' : 'bg-neon-pink/5 border border-neon-pink/10'} px-3 py-1.5 rounded-lg`}>
+                  <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Balance</p>
+                  <p className="text-sm font-bold text-neon-pink tabular-nums">${fineUser.availableEarnings.toFixed(2)}</p>
+                </div>
+              </div>
+
+              {fineSuccess ? (
+                <div className={`flex flex-col items-center text-center py-6 ${isDark ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-200'} rounded-xl`}>
+                  <CheckCircle className="w-10 h-10 text-green-400 mb-2" />
+                  <p className={`text-sm font-bold ${isDark ? 'text-green-400' : 'text-green-700'}`}>Fine Deducted Successfully</p>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    ${parseFloat(fineAmount).toFixed(2)} has been deducted from @{fineUser.username}'s balance.
+                  </p>
+                  <button
+                    onClick={() => setFineUser(null)}
+                    className={`mt-4 px-4 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Amount input */}
+                  <div>
+                    <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Fine Amount ($)</label>
+                    <div className="relative">
+                      <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value={fineAmount}
+                        onChange={(e) => { setFineAmount(e.target.value); setFineError(null); }}
+                        className={`w-full pl-8 pr-4 py-3 rounded-xl text-sm outline-none transition-all ${isDark ? 'bg-white/5 border border-white/10 text-white focus:border-red-400/50' : 'bg-white border border-gray-200 text-gray-900 focus:border-red-400/50'}`}
+                      />
+                    </div>
+                    {/* Quick amounts */}
+                    <div className="flex gap-2 mt-2">
+                      {[5, 10, 15, 25].map((amt) => (
+                        <button
+                          key={amt}
+                          onClick={() => { setFineAmount(String(amt)); setFineError(null); }}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${fineAmount === String(amt) ? 'bg-red-500/20 text-red-400 border border-red-500/30' : isDark ? 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10' : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'}`}
+                        >
+                          ${amt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Reason input */}
+                  <div>
+                    <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Reason (optional)</label>
+                    <textarea
+                      value={fineReason}
+                      onChange={(e) => setFineReason(e.target.value)}
+                      rows={2}
+                      placeholder="e.g. ChatGPT / AI content detected"
+                      className={`w-full px-4 py-3 rounded-xl text-sm outline-none transition-all resize-none ${isDark ? 'bg-white/5 border border-white/10 text-white placeholder-gray-600 focus:border-red-400/50' : 'bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-red-400/50'}`}
+                    />
+                  </div>
+
+                  {/* Error message */}
+                  {fineError && (
+                    <div className={`flex items-center gap-2 p-3 rounded-xl ${isDark ? 'bg-red-500/10 border border-red-500/20' : 'bg-red-50 border border-red-200'}`}>
+                      <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                      <p className="text-sm font-medium text-red-400">{fineError}</p>
+                    </div>
+                  )}
+
+                  {/* Preview */}
+                  <div className={`flex items-center justify-between p-3 rounded-xl text-xs ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+                    <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>New balance after fine:</span>
+                    <span className={`font-bold tabular-nums ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      ${Math.max(0, fineUser.availableEarnings - (parseFloat(fineAmount) || 0)).toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* Submit */}
+                  <button
+                    onClick={async () => {
+                      const amt = parseFloat(fineAmount);
+                      if (isNaN(amt) || amt <= 0) { setFineError('Enter a valid amount.'); return; }
+                      setFineProcessing(true);
+                      setFineError(null);
+                      const result = await deductFine(fineUser.id, amt, fineReason.trim() || undefined);
+                      setFineProcessing(false);
+                      if (result.success) {
+                        setFineSuccess(true);
+                      } else {
+                        setFineError(result.error || 'Failed to deduct fine.');
+                      }
+                    }}
+                    disabled={fineProcessing}
+                    className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${isDark ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30' : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'} disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    {fineProcessing ? (
+                      <><RefreshCw className="w-4 h-4 animate-spin" /> Processing…</>
+                    ) : (
+                      <><AlertTriangle className="w-4 h-4" /> Confirm Fine Deduction</>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

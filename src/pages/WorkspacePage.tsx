@@ -31,6 +31,7 @@ interface UploadedFile {
   size: string;
   type: string;
   file: File | null;
+  preview?: string;
 }
 
 function wordCount(text: string): number {
@@ -39,6 +40,17 @@ function wordCount(text: string): number {
 
 function formatFileSize(bytes: number): number {
   return bytes < 1024 ? bytes : bytes < 1048576 ? bytes / 1024 : bytes / 1048576;
+}
+
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
+const ALLOWED_FILE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+
+function isAllowedFile(f: File): boolean {
+  return ALLOWED_FILE_TYPES.includes(f.type) || ALLOWED_FILE_EXTS.some((ext) => f.name.toLowerCase().endsWith(ext));
+}
+
+function isImageFile(f: File): boolean {
+  return f.type.startsWith('image/') || ['.jpg', '.jpeg', '.png', '.webp'].some((ext) => f.name.toLowerCase().endsWith(ext));
 }
 
 type SubmissionMethod = 'local_text' | 'photo_document';
@@ -64,7 +76,7 @@ export function WorkspacePage() {
 
   // Dual submission state
   const [submissionMethod, setSubmissionMethod] = useState<SubmissionMethod>('local_text');
-  const [photoFile, setPhotoFile] = useState<UploadedFile | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<UploadedFile[]>([]);
   const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -128,7 +140,7 @@ export function WorkspacePage() {
   }
 
   const wc = wordCount(content);
-  const hasPhotoFile = photoFile !== null;
+  const hasPhotoFile = photoFiles.length > 0;
 
   // PATH 1: Validation for local text - ONLY word count matters
   const canSubmitText = wc >= 1000;
@@ -139,36 +151,45 @@ export function WorkspacePage() {
 
   // ── Photo document handling ───────────────────────────────────────────────────
 
+  const addFiles = (files: File[]) => {
+    const valid = files.filter(isAllowedFile);
+    if (valid.length === 0) return;
+    const newEntries: UploadedFile[] = valid.map((file) => {
+      const entry: UploadedFile = {
+        name: file.name,
+        size: `${formatFileSize(file.size).toFixed(1)} ${file.size < 1024 ? 'B' : file.size < 1048576 ? 'KB' : 'MB'}`,
+        type: file.type,
+        file,
+      };
+      if (isImageFile(file)) {
+        entry.preview = URL.createObjectURL(file);
+      }
+      return entry;
+    });
+    setPhotoFiles((prev) => [...prev, ...newEntries]);
+    setUploadError(null);
+  };
+
+  const removeFile = (idx: number) => {
+    setPhotoFiles((prev) => {
+      const entry = prev[idx];
+      if (entry?.preview) URL.revokeObjectURL(entry.preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
     if (!selected || selected.length === 0) return;
-    const file = selected[0];
-    if (
-      file.type.startsWith('image/') ||
-      file.type === 'application/pdf' ||
-      file.name.endsWith('.jpg') || file.name.endsWith('.jpeg') ||
-      file.name.endsWith('.png') || file.name.endsWith('.pdf')
-    ) {
-      setPhotoFile({ name: file.name, size: `${formatFileSize(file.size).toFixed(1)} ${file.size < 1024 ? 'B' : file.size < 1048576 ? 'KB' : 'MB'}`, type: file.type, file });
-      setUploadError(null);
-    }
+    addFiles(Array.from(selected));
+    e.target.value = '';
   };
 
   const handlePhotoDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingPhoto(false);
-    const dropped = Array.from(e.dataTransfer.files).filter(
-      (f) =>
-        f.type.startsWith('image/') ||
-        f.type === 'application/pdf' ||
-        f.name.endsWith('.jpg') || f.name.endsWith('.jpeg') ||
-        f.name.endsWith('.png') || f.name.endsWith('.pdf')
-    );
-    if (dropped.length > 0) {
-      const file = dropped[0];
-      setPhotoFile({ name: file.name, size: `${formatFileSize(file.size).toFixed(1)} ${file.size < 1024 ? 'B' : file.size < 1048576 ? 'KB' : 'MB'}`, type: file.type, file });
-      setUploadError(null);
-    }
+    const dropped = Array.from(e.dataTransfer.files).filter(isAllowedFile);
+    if (dropped.length > 0) addFiles(dropped);
   }, []);
 
   // ── Submit ───────────────────────────────────────────────────────────────────
@@ -179,27 +200,32 @@ export function WorkspacePage() {
     setUploadError(null);
     try {
       const submissionType: SubmissionType = submissionMethod === 'local_text' ? 'local_text' : 'photo_document';
-      const finalText = submissionMethod === 'local_text' ? content : `[Photo Document Submission: ${photoFile?.name}]`;
-      const finalFileName = submissionMethod === 'photo_document' ? (photoFile?.name ?? null) : null;
+      const finalText = submissionMethod === 'local_text' ? content : `[Photo Document Submission: ${photoFiles.length} file(s)]`;
+      const finalFileName = submissionMethod === 'photo_document' ? (photoFiles[0]?.name ?? null) : null;
       const estimatedWc = null;
       const charCnt = submissionMethod === 'local_text' ? content.length : null;
 
       let fileProofUrl: string | null = null;
-      if (submissionMethod === 'photo_document' && photoFile?.file) {
-        const ext = photoFile.file.name.split('.').pop() || 'bin';
-        const filePath = `${currentUser?.id}/${Date.now()}-${Math.random().toString(36).substr(2, 8)}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from('proof-of-work')
-          .upload(filePath, photoFile.file);
-        if (upErr) {
-          setUploadError('Failed to upload file. Please try again.');
-          setIsSubmitting(false);
-          return;
+      const proofUrls: string[] = [];
+      if (submissionMethod === 'photo_document' && photoFiles.length > 0) {
+        for (const entry of photoFiles) {
+          if (!entry.file) continue;
+          const ext = entry.file.name.split('.').pop() || 'bin';
+          const filePath = `${currentUser?.id}/${Date.now()}-${Math.random().toString(36).substr(2, 8)}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from('proof-of-work')
+            .upload(filePath, entry.file);
+          if (upErr) {
+            setUploadError('Failed to upload one or more files. Please try again.');
+            setIsSubmitting(false);
+            return;
+          }
+          const { data: pubData } = supabase.storage
+            .from('proof-of-work')
+            .getPublicUrl(filePath);
+          proofUrls.push(pubData.publicUrl);
         }
-        const { data: pubData } = supabase.storage
-          .from('proof-of-work')
-          .getPublicUrl(filePath);
-        fileProofUrl = pubData.publicUrl;
+        fileProofUrl = proofUrls[0] ?? null;
       }
 
       await submitAssignment(
@@ -211,12 +237,14 @@ export function WorkspacePage() {
         fileProofUrl,
         submissionType,
         estimatedWc,
-        charCnt
+        charCnt,
+        proofUrls.length > 0 ? proofUrls : undefined
       );
       setJustSubmitted(assignment.topicId);
       setActiveIdx(null);
       setContent('');
-      setPhotoFile(null);
+      photoFiles.forEach((f) => { if (f.preview) URL.revokeObjectURL(f.preview); });
+      setPhotoFiles([]);
     } finally {
       setIsSubmitting(false);
     }
@@ -226,7 +254,8 @@ export function WorkspacePage() {
   const handleMethodChange = (method: SubmissionMethod) => {
     setSubmissionMethod(method);
     if (method === 'local_text') {
-      setPhotoFile(null);
+      photoFiles.forEach((f) => { if (f.preview) URL.revokeObjectURL(f.preview); });
+      setPhotoFiles([]);
     } else {
       setContent('');
     }
@@ -265,7 +294,7 @@ export function WorkspacePage() {
               {submissionMethod === 'local_text' ? 'Min 1,000 Words' : 'Upload Required'}
             </div>
             <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${isDark ? 'bg-white/10 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
-              ${totalDailyPayout.toFixed(2)} available today
+              {'$'}{totalDailyPayout.toFixed(2)} available today
             </div>
           </div>
         </div>
@@ -294,6 +323,25 @@ export function WorkspacePage() {
           </div>
         )}
 
+        {/* AI Content Warning Banner */}
+        {currentUserAssignments.length > 0 && !allLocked && (
+          <div className="mb-6 rounded-xl p-4 border-2 border-red-500 bg-red-500/10">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-lg flex-shrink-0 bg-red-500/20">
+                <AlertTriangle className="w-6 h-6 text-red-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-red-400 uppercase tracking-wide">
+                  Warning: Strictly No ChatGPT or AI-Generated Content
+                </p>
+                <p className={`text-xs mt-1 leading-relaxed ${isDark ? 'text-red-300/80' : 'text-red-700/80'}`}>
+                  In case of using ChatGPT or AI tools, you will face an immediate penalty, and a <span className="font-bold">$10 fine</span> will be deducted from your account balance.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* All locked / complete banner */}
         {allLocked && (
           <div className={`${glass} p-6 mb-6 text-center`}>
@@ -305,7 +353,7 @@ export function WorkspacePage() {
               All submissions are pending verification. Your earnings will be credited upon approval.
             </p>
             <p className={`mt-2 text-sm font-medium text-neon-pink`}>
-              Potential earnings: ${totalDailyPayout.toFixed(2)}
+              Potential earnings: {'$'}{totalDailyPayout.toFixed(2)}
             </p>
           </div>
         )}
@@ -404,7 +452,7 @@ export function WorkspacePage() {
                         </p>
                         <div className="flex items-center gap-3 mt-1.5">
                           <span className="text-neon-pink text-sm font-bold">
-                            ${assignment.payout.toFixed(2)} payout
+                            {'$'}{assignment.payout.toFixed(2)} payout
                           </span>
                           <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                             {submissionMethod === 'local_text' ? 'Min. 1,000 words' : 'Photo document'}
@@ -541,7 +589,7 @@ export function WorkspacePage() {
                           <p className={`text-xs font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                             Upload Scanned Document or Photo Proof of Handwritten Assignment <span className="text-neon-pink">*required</span>
                           </p>
-                          {!photoFile ? (
+                          {photoFiles.length === 0 ? (
                             <div
                               onClick={() => photoInputRef.current?.click()}
                               onDragOver={(e) => { e.preventDefault(); setIsDraggingPhoto(true); }}
@@ -557,10 +605,10 @@ export function WorkspacePage() {
                             >
                               <Camera className={`w-12 h-12 mx-auto mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
                               <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Drop your scanned document or photo here
+                                Drop your scanned documents or photos here
                               </p>
                               <p className={`text-xs mt-1 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                                Accepted: JPG, PNG, PDF
+                                Accepted: JPG, PNG, WebP, PDF — You can select multiple files
                               </p>
                               <button
                                 type="button"
@@ -572,30 +620,50 @@ export function WorkspacePage() {
                               </button>
                             </div>
                           ) : (
-                            <div className={`flex items-center gap-3 p-4 rounded-xl ${isDark ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-200'}`}>
-                              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isDark ? 'bg-green-500/20' : 'bg-green-100'}`}>
-                                <Camera className="w-6 h-6 text-green-400" />
+                            <div className="space-y-3">
+                              {/* Thumbnail grid */}
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                {photoFiles.map((entry, idx) => (
+                                  <div key={idx} className={`relative group rounded-xl overflow-hidden border ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+                                    {entry.preview ? (
+                                      <img src={entry.preview} alt={entry.name} className="w-full h-28 object-cover" />
+                                    ) : (
+                                      <div className="w-full h-28 flex flex-col items-center justify-center gap-1">
+                                        <FileText className={`w-8 h-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                                        <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>PDF</span>
+                                      </div>
+                                    )}
+                                    <div className="p-2">
+                                      <p className={`text-xs font-medium truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{entry.name}</p>
+                                      <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>{entry.size}</p>
+                                    </div>
+                                    <button
+                                      onClick={() => removeFile(idx)}
+                                      className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-red-500/90 hover:bg-red-500 flex items-center justify-center transition-all shadow-lg"
+                                    >
+                                      <X className="w-4 h-4 text-white" />
+                                    </button>
+                                  </div>
+                                ))}
+                                {/* Add more tile */}
+                                <button
+                                  onClick={() => photoInputRef.current?.click()}
+                                  className={`rounded-xl border-2 border-dashed flex flex-col items-center justify-center h-44 transition-all ${isDark ? 'border-white/20 hover:border-neon-pink/40 hover:bg-white/5 text-gray-500' : 'border-gray-300 hover:border-neon-pink/40 hover:bg-gray-50 text-gray-400'}`}
+                                >
+                                  <Upload className="w-6 h-6 mb-1" />
+                                  <span className="text-xs font-medium">Add More</span>
+                                </button>
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <p className={`text-sm font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                  {photoFile.name}
-                                </p>
-                                <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                  {photoFile.size} — Document uploaded
-                                </p>
-                              </div>
-                              <button
-                                onClick={() => setPhotoFile(null)}
-                                className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
-                              >
-                                <X className="w-5 h-5 text-gray-400" />
-                              </button>
+                              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {photoFiles.length} file{photoFiles.length !== 1 ? 's' : ''} selected
+                              </p>
                             </div>
                           )}
                           <input
                             ref={photoInputRef}
                             type="file"
-                            accept=".jpg,.jpeg,.png,.pdf,image/*"
+                            accept=".jpg,.jpeg,.png,.webp,.pdf,image/*"
+                            multiple
                             className="hidden"
                             onChange={handlePhotoChange}
                           />
@@ -650,7 +718,7 @@ export function WorkspacePage() {
                         ) : (
                           <>
                             <FileText className="w-4 h-4" />
-                            Submit for Verification — ${assignment.payout.toFixed(2)}
+                            Submit for Verification — {'$'}{assignment.payout.toFixed(2)}
                           </>
                         )}
                       </button>

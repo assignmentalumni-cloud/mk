@@ -81,6 +81,7 @@ export interface Submission {
   submittedText: string;
   fileProofName: string | null;
   fileProofUrl?: string | null;
+  proofUrls?: string[];
   status: SubmissionStatus;
   calculatedPayout: number;
   submittedAt: string;
@@ -88,6 +89,15 @@ export interface Submission {
   estimatedWordCount: number | null;
   charCount: number | null;
   rejectionFeedback: string | null;
+}
+
+export interface PenaltyTransaction {
+  id: string;
+  userId: string;
+  username: string;
+  amount: number;
+  reason: string | null;
+  createdAt: string;
 }
 
 export interface PendingDeposit {
