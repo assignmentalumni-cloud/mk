@@ -4,11 +4,11 @@ import {
   Crown, Zap, Clock, ChevronDown, ShieldCheck, RefreshCw,
   PlusCircle, Settings, Inbox, Wallet, ExternalLink,
   Camera, PenLine, Hash, Link2, Copy, X, ImageIcon, Eye,
-  Award, Sparkles, TrendingUp,
+  Award, Sparkles, TrendingUp, Phone, Mail,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
-import type { AccountTier, PendingDeposit, Submission, LevelClaim } from '../types';
+import type { AccountTier, PendingDeposit, Submission, LevelClaim, User } from '../types';
 import { TIER_CONFIG, REFERRAL_LEVELS } from '../types';
 
 type Tab = 'approvals' | 'deposits' | 'payouts' | 'claims';
@@ -247,6 +247,7 @@ export function AdminPanel() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [lightboxTitle, setLightboxTitle] = useState<string | undefined>();
   const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
+  const [profileSlipUser, setProfileSlipUser] = useState<User | null>(null);
 
   const glass = isDark ? 'glass-dark' : 'glass-light';
 
@@ -765,6 +766,13 @@ export function AdminPanel() {
                     )}
 
                     <div className={`mt-3 pt-3 border-t ${isDark ? 'border-white/10' : 'border-gray-200'} flex items-center gap-2 flex-wrap`}>
+                      <button
+                        onClick={() => setProfileSlipUser(user)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDark ? 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/20' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'}`}
+                      >
+                        <Eye className="w-3 h-3" />
+                        View Profile Slip
+                      </button>
                       <span className={`text-xs font-semibold flex items-center gap-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}><Settings className="w-3 h-3" />Dev:</span>
                       <button onClick={() => act(user.id + '_ref', () => addReferral(user.id))} disabled={isRefBusy || user.currentCycleReferrals >= 2}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50 ${user.currentCycleReferrals >= 2 ? isDark ? 'bg-white/5 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed' : isDark ? 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'}`}>
@@ -793,6 +801,108 @@ export function AdminPanel() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Slip Modal */}
+      {profileSlipUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => setProfileSlipUser(null)}
+        >
+          <div
+            className={`relative max-w-md w-full rounded-2xl overflow-hidden shadow-2xl ${isDark ? 'bg-gray-900 border border-white/10' : 'bg-white border border-gray-200'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-neon-pink/20 to-purple-500/20">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-neon-pink" />
+                <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Official User Profile Slip</span>
+              </div>
+              <button
+                onClick={() => setProfileSlipUser(null)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                <X className="w-4 h-4" />
+                Close
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-5">
+              {/* Avatar + Name + Username */}
+              <div className="flex flex-col items-center text-center">
+                <div className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center border-2 ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+                  {profileSlipUser.avatarUrl ? (
+                    <img src={profileSlipUser.avatarUrl} alt={profileSlipUser.fullName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className={`text-xl font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {profileSlipUser.fullName.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <h3 className={`mt-3 text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{profileSlipUser.fullName}</h3>
+                <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>@{profileSlipUser.username}</p>
+                <div className="mt-1">{tierBadge(profileSlipUser.depositTier)}</div>
+              </div>
+
+              {/* Contact details */}
+              <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-3">
+                  <Phone className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Mobile Number</p>
+                    <p className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{profileSlipUser.phone || '—'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Email Address</p>
+                    <p className={`text-sm font-medium truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{profileSlipUser.email || '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Balance + earnings history */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`rounded-xl p-4 text-center ${isDark ? 'bg-neon-pink/10 border border-neon-pink/20' : 'bg-neon-pink/5 border border-neon-pink/10'}`}>
+                  <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Account Balance</p>
+                  <p className="text-xl font-bold text-neon-pink tabular-nums mt-0.5">${profileSlipUser.availableEarnings.toFixed(2)}</p>
+                </div>
+                <div className={`rounded-xl p-4 text-center ${isDark ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-200'}`}>
+                  <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Total Earnings (Lifetime)</p>
+                  <p className="text-xl font-bold text-green-400 tabular-nums mt-0.5">${(profileSlipUser.availableEarnings + profileSlipUser.lifetimeWithdrawals * 10).toFixed(2)}</p>
+                </div>
+              </div>
+
+              {/* Work earnings history */}
+              <div>
+                <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Work Earnings History</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {allSubmissions.filter((s) => s.userId === profileSlipUser.id).length === 0 ? (
+                    <p className={`text-xs text-center py-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No submissions yet</p>
+                  ) : (
+                    allSubmissions.filter((s) => s.userId === profileSlipUser.id).slice(0, 10).map((sub) => (
+                      <div key={sub.submissionId} className={`flex items-center gap-3 p-2.5 rounded-lg ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${sub.status === 'Approved' ? 'bg-green-500/20' : sub.status === 'Rejected' ? 'bg-red-500/20' : 'bg-yellow-500/20'}`}>
+                          {sub.status === 'Approved' ? <CheckCircle className="w-3.5 h-3.5 text-green-400" /> : sub.status === 'Rejected' ? <XCircle className="w-3.5 h-3.5 text-red-400" /> : <Clock className="w-3.5 h-3.5 text-yellow-400" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{sub.topicTitle}</p>
+                          <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>{new Date(sub.submittedAt).toLocaleDateString()}</p>
+                        </div>
+                        <span className={`text-xs font-bold tabular-nums ${sub.status === 'Approved' ? 'text-green-400' : sub.status === 'Rejected' ? 'text-red-400' : isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                          {sub.status === 'Approved' ? `+${sub.calculatedPayout.toFixed(2)}` : sub.status}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

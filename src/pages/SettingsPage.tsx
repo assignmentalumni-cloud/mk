@@ -1,13 +1,12 @@
 import { useState, useRef } from 'react';
 import {
-  User, Mail, Phone, Lock, ChevronDown, Upload, CheckCircle,
+  User, Mail, Phone, ChevronDown, Upload, CheckCircle,
   AlertCircle, X, FileText,
   Shield, Wallet, DollarSign, Users, ArrowRight, Copy, AlertTriangle,
   Link2, Crown, Zap, Sparkles, Clock,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalState } from '../hooks/useGlobalState.tsx';
-import { WithdrawalPanel } from '../components/WithdrawalPanel';
 import type { AccountTier } from '../types';
 
 const BEP20_DEPOSIT_ADDRESS = '0xDb4E86cCa824E8CBeDba466430CFC1f8A6191BCb';
@@ -20,7 +19,6 @@ export function SettingsPage() {
   const {
     currentUser,
     updateProfile,
-    updatePassword,
     uploadAvatar,
     submitDepositProof,
     requestCashout,
@@ -34,7 +32,6 @@ export function SettingsPage() {
   const [email, setEmail] = useState(currentUser?.email ?? '');
   const [phone, setPhone] = useState(currentUser?.phone ?? '');
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl ?? '');
-  const [newPassword, setNewPassword] = useState('');
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -64,18 +61,7 @@ export function SettingsPage() {
 
   const glass = isDark ? 'glass-dark' : 'glass-light';
 
-  // ── Profile completeness check ──────────────────────────────────────────────
-  const isProfileComplete = !!(
-    currentUser?.fullName?.trim() &&
-    currentUser?.email?.trim() &&
-    currentUser?.phone?.trim() &&
-    currentUser?.avatarUrl
-  );
-
   const toggleSection = (s: Section) => {
-    if (s === 'deposit' || s === 'withdrawal') {
-      if (!isProfileComplete) return;
-    }
     setOpenSection(openSection === s ? null : s);
   };
 
@@ -110,11 +96,6 @@ export function SettingsPage() {
     }
 
     const result = await updateProfile(fullName.trim(), email.trim(), phone.trim());
-
-    if (newPassword) {
-      await updatePassword(newPassword);
-      setNewPassword('');
-    }
 
     setIsSavingProfile(false);
     if (result.success) {
@@ -161,7 +142,7 @@ export function SettingsPage() {
   const lifetimeWithdrawals = currentUser?.lifetimeWithdrawals ?? 0;
   const hasPendingCashout = pendingCashoutRequests.some((c) => c.userId === currentUser?.id);
   const isFirstWithdrawal = lifetimeWithdrawals === 0;
-  const requiredReferrals = 1; // Per spec: 1 active referral needed
+  const requiredReferrals = 1;
   const referralLocked = currentCycleReferrals < requiredReferrals;
   const balanceLocked = availableEarnings < MIN_WITHDRAWAL;
   const wLocked = referralLocked || balanceLocked;
@@ -198,15 +179,15 @@ export function SettingsPage() {
   const pInputClass = (errKey?: string) =>
     `w-full px-4 py-3 rounded-xl text-sm outline-none transition-all ${
       isDark
-        ? `bg-white/5 border ${errKey && profileErrors[errKey] ? 'border-red-400' : 'border-white/10'} text-white placeholder-gray-600 focus:border-neon-pink/50`
-        : `bg-white border ${errKey && profileErrors[errKey] ? 'border-red-400' : 'border-gray-200'} text-gray-900 placeholder-gray-400 focus:border-neon-pink/50`
+      ? `bg-white/5 border ${errKey && profileErrors[errKey] ? 'border-red-400' : 'border-white/10'} text-white placeholder-gray-600 focus:border-neon-pink/50`
+      : `bg-white border ${errKey && profileErrors[errKey] ? 'border-red-400' : 'border-gray-200'} text-gray-900 placeholder-gray-400 focus:border-neon-pink/50`
     }`;
 
   const dInputClass = (errKey?: string) =>
     `w-full px-4 py-3 rounded-xl text-sm outline-none transition-all ${
       isDark
-        ? `bg-white/5 border ${errKey && depErrors[errKey] ? 'border-red-400' : 'border-white/10'} text-white placeholder-gray-600 focus:border-neon-pink/50`
-        : `bg-white border ${errKey && depErrors[errKey] ? 'border-red-400' : 'border-gray-200'} text-gray-900 placeholder-gray-400 focus:border-neon-pink/50`
+      ? `bg-white/5 border ${errKey && depErrors[errKey] ? 'border-red-400' : 'border-white/10'} text-white placeholder-gray-600 focus:border-neon-pink/50`
+      : `bg-white border ${errKey && depErrors[errKey] ? 'border-red-400' : 'border-gray-200'} text-gray-900 placeholder-gray-400 focus:border-neon-pink/50`
     }`;
 
   const tiers = [
@@ -219,7 +200,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
+      {/* Page header with live balance */}
       <div className={`${glass} p-5`}>
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-neon-pink/20' : 'bg-neon-pink/10'}`}>
@@ -231,15 +212,13 @@ export function SettingsPage() {
               Manage your profile, deposits, and withdrawals
             </p>
           </div>
-          {isProfileComplete ? (
-            <span className={`ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${isDark ? 'bg-green-500/20 text-green-400' : 'bg-green-50 text-green-700'}`}>
-              <CheckCircle className="w-3.5 h-3.5" /> Profile Complete
+          {/* Live total account balance */}
+          <div className={`ml-auto flex flex-col items-end px-4 py-2 rounded-xl ${isDark ? 'bg-neon-pink/10 border border-neon-pink/20' : 'bg-neon-pink/5 border border-neon-pink/10'}`}>
+            <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Account Balance</span>
+            <span className="text-xl font-bold text-neon-pink tabular-nums leading-tight">
+              ${availableEarnings.toFixed(2)}
             </span>
-          ) : (
-            <span className={`ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${isDark ? 'bg-yellow-500/20 text-yellow-400' : 'bg-yellow-50 text-yellow-700'}`}>
-              <AlertCircle className="w-3.5 h-3.5" /> Profile Incomplete
-            </span>
-          )}
+          </div>
         </div>
       </div>
 
@@ -255,7 +234,7 @@ export function SettingsPage() {
           <div className="flex-1">
             <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Update Profile</h3>
             <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              Name, photo, mobile, email & password
+              Photo, name, mobile & email
             </p>
           </div>
           <ChevronDown className={`w-5 h-5 transition-transform ${openSection === 'profile' ? 'rotate-180' : ''} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
@@ -263,10 +242,11 @@ export function SettingsPage() {
 
         {openSection === 'profile' && (
           <div className={`px-5 pb-5 border-t ${isDark ? 'border-white/10' : 'border-gray-200'} pt-5 space-y-5`}>
+            {/* Success toast */}
             {profileSaved && (
               <div className={`flex items-center gap-2 p-3 rounded-xl ${isDark ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-200'}`}>
                 <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                <p className={`text-sm font-medium ${isDark ? 'text-green-400' : 'text-green-700'}`}>Profile saved successfully! Deposit & Withdrawal are now unlocked.</p>
+                <p className={`text-sm font-medium ${isDark ? 'text-green-400' : 'text-green-700'}`}>Profile updated successfully!</p>
               </div>
             )}
             {profileErrors.general && (
@@ -276,25 +256,7 @@ export function SettingsPage() {
               </div>
             )}
 
-            {/* Full Name */}
-            <div>
-              <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Full Name</label>
-              <div className="relative">
-                <span className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                  <User className="w-4 h-4" />
-                </span>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => { setFullName(e.target.value); setProfileErrors((p) => ({ ...p, fullName: '' })); }}
-                  placeholder="Enter your full name"
-                  className={`${pInputClass('fullName')} pl-10`}
-                />
-              </div>
-              {profileErrors.fullName && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{profileErrors.fullName}</p>}
-            </div>
-
-            {/* Profile Picture */}
+            {/* 1. Profile Picture */}
             <div>
               <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Profile Picture</label>
               <div className="flex items-center gap-4">
@@ -332,7 +294,25 @@ export function SettingsPage() {
               />
             </div>
 
-            {/* Mobile Number */}
+            {/* 2. Full Name */}
+            <div>
+              <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Full Name</label>
+              <div className="relative">
+                <span className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  <User className="w-4 h-4" />
+                </span>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => { setFullName(e.target.value); setProfileErrors((p) => ({ ...p, fullName: '' })); }}
+                  placeholder="Enter your full name"
+                  className={`${pInputClass('fullName')} pl-10`}
+                />
+              </div>
+              {profileErrors.fullName && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{profileErrors.fullName}</p>}
+            </div>
+
+            {/* 3. Mobile Number */}
             <div>
               <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Mobile Number</label>
               <div className="relative">
@@ -350,7 +330,7 @@ export function SettingsPage() {
               {profileErrors.phone && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{profileErrors.phone}</p>}
             </div>
 
-            {/* Email Address */}
+            {/* 4. Email Address */}
             <div>
               <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Email Address</label>
               <div className="relative">
@@ -366,25 +346,6 @@ export function SettingsPage() {
                 />
               </div>
               {profileErrors.email && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{profileErrors.email}</p>}
-            </div>
-
-            {/* Password Update */}
-            <div>
-              <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Account Password Update <span className={`${isDark ? 'text-gray-600' : 'text-gray-400'}`}>(leave blank to keep current)</span>
-              </label>
-              <div className="relative">
-                <span className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                  <Lock className="w-4 h-4" />
-                </span>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password (min 6 characters)"
-                  className={`${pInputClass()} pl-10`}
-                />
-              </div>
             </div>
 
             {/* Save button */}
@@ -403,39 +364,25 @@ export function SettingsPage() {
         )}
       </div>
 
-      {/* ── SECTION 2: Deposit ────────────────────────────────────────────────── */}
+      {/* ── SECTION 2: Deposit (permanently unlocked) ─────────────────────────── */}
       <div className={`${glass} overflow-hidden`}>
         <button
           onClick={() => toggleSection('deposit')}
-          className={`w-full flex items-center gap-3 p-5 text-left transition-all ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} ${!isProfileComplete ? 'cursor-not-allowed' : ''}`}
+          className={`w-full flex items-center gap-3 p-5 text-left transition-all ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}
         >
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isProfileComplete ? (isDark ? 'bg-green-500/20' : 'bg-green-50') : (isDark ? 'bg-gray-500/10' : 'bg-gray-100')}`}>
-            {isProfileComplete ? <Wallet className="w-5 h-5 text-green-400" /> : <Lock className="w-5 h-5 text-gray-500" />}
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-green-500/20' : 'bg-green-50'}`}>
+            <Wallet className="w-5 h-5 text-green-400" />
           </div>
           <div className="flex-1">
             <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Deposit</h3>
             <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              {isProfileComplete ? 'Submit deposit slip & payment proof' : 'Complete profile to unlock'}
+              Submit deposit slip & payment proof
             </p>
           </div>
-          {!isProfileComplete && (
-            <span className="text-xs">🔒</span>
-          )}
-          {isProfileComplete && (
-            <ChevronDown className={`w-5 h-5 transition-transform ${openSection === 'deposit' ? 'rotate-180' : ''} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
-          )}
+          <ChevronDown className={`w-5 h-5 transition-transform ${openSection === 'deposit' ? 'rotate-180' : ''} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
         </button>
 
-        {!isProfileComplete && (
-          <div className={`px-5 pb-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-            <p className="text-xs flex items-center gap-1.5">
-              <Lock className="w-3 h-3" />
-              Complete and update your profile first to unlock Deposit & Withdrawal
-            </p>
-          </div>
-        )}
-
-        {openSection === 'deposit' && isProfileComplete && (
+        {openSection === 'deposit' && (
           <div className={`px-5 pb-5 border-t ${isDark ? 'border-white/10' : 'border-gray-200'} pt-5 space-y-5`}>
             {/* Pending state */}
             {currentUser.activationStatus === 'Activation_Pending' ? (
@@ -591,39 +538,25 @@ export function SettingsPage() {
         )}
       </div>
 
-      {/* ── SECTION 3: Withdrawal ──────────────────────────────────────────────── */}
+      {/* ── SECTION 3: Withdrawal (permanently unlocked) ──────────────────────── */}
       <div className={`${glass} overflow-hidden`}>
         <button
           onClick={() => toggleSection('withdrawal')}
-          className={`w-full flex items-center gap-3 p-5 text-left transition-all ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} ${!isProfileComplete ? 'cursor-not-allowed' : ''}`}
+          className={`w-full flex items-center gap-3 p-5 text-left transition-all ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}
         >
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isProfileComplete ? (isDark ? 'bg-neon-pink/20' : 'bg-neon-pink/10') : (isDark ? 'bg-gray-500/10' : 'bg-gray-100')}`}>
-            {isProfileComplete ? <DollarSign className="w-5 h-5 text-neon-pink" /> : <Lock className="w-5 h-5 text-gray-500" />}
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-neon-pink/20' : 'bg-neon-pink/10'}`}>
+            <DollarSign className="w-5 h-5 text-neon-pink" />
           </div>
           <div className="flex-1">
             <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Withdrawal</h3>
             <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              {isProfileComplete ? 'Request a payout to your BEP-20 wallet' : 'Complete profile to unlock'}
+              Request a payout to your BEP-20 wallet
             </p>
           </div>
-          {!isProfileComplete && (
-            <span className="text-xs">🔒</span>
-          )}
-          {isProfileComplete && (
-            <ChevronDown className={`w-5 h-5 transition-transform ${openSection === 'withdrawal' ? 'rotate-180' : ''} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
-          )}
+          <ChevronDown className={`w-5 h-5 transition-transform ${openSection === 'withdrawal' ? 'rotate-180' : ''} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
         </button>
 
-        {!isProfileComplete && (
-          <div className={`px-5 pb-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-            <p className="text-xs flex items-center gap-1.5">
-              <Lock className="w-3 h-3" />
-              Complete and update your profile first to unlock Deposit & Withdrawal
-            </p>
-          </div>
-        )}
-
-        {openSection === 'withdrawal' && isProfileComplete && (
+        {openSection === 'withdrawal' && (
           <div className={`px-5 pb-5 border-t ${isDark ? 'border-white/10' : 'border-gray-200'} pt-5 space-y-4`}>
             {/* Available balance */}
             <div className={`rounded-xl p-4 ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
@@ -657,7 +590,7 @@ export function SettingsPage() {
               <div className="flex items-center gap-3 rounded-xl p-4 border-2"
                 style={{ background: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.06)', borderColor: '#F59E0B' }}>
                 <div className="p-2 rounded-lg flex-shrink-0" style={{ background: 'rgba(245,158,11,0.15)' }}>
-                  <Lock className="w-5 h-5" style={{ color: '#F59E0B' }} />
+                  <AlertTriangle className="w-5 h-5" style={{ color: '#F59E0B' }} />
                 </div>
                 <div>
                   <p className="text-sm font-bold" style={{ color: '#F59E0B' }}>
@@ -671,7 +604,7 @@ export function SettingsPage() {
             )}
             {!referralLocked && balanceLocked && (
               <div className={`flex items-center gap-3 p-4 rounded-xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-50 border border-gray-200'}`}>
-                <Lock className={`w-5 h-5 flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                <AlertTriangle className={`w-5 h-5 flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
                 <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   Minimum balance of ${MIN_WITHDRAWAL}.00 required to withdraw.
                 </p>
@@ -778,7 +711,7 @@ export function SettingsPage() {
                   }`}
                 >
                   {wLocked ? (
-                    <><Lock className="w-4 h-4" />{referralLocked ? 'Locked — 1 referral required' : `Minimum $${MIN_WITHDRAWAL} balance required`}</>
+                    <><AlertTriangle className="w-4 h-4" />{referralLocked ? 'Locked — 1 referral required' : `Minimum $${MIN_WITHDRAWAL} balance required`}</>
                   ) : (
                     <><CheckCircle className="w-4 h-4" />Request Cashout<ArrowRight className="w-4 h-4" /></>
                   )}
