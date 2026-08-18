@@ -140,17 +140,24 @@ export function OnboardingPaywall() {
           </div>
         )}
 
-        {/* Header */}
+   {/* Header */}
         <div className="text-center mb-7">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Lock className="w-5 h-5 text-neon-pink" />
-            <Shield className="w-7 h-7 text-neon-pink" />
+          <div className="flex flex-col items-center justify-center space-y-2 mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white font-extrabold text-2xl shadow-lg shadow-pink-200">
+              A
+            </div>
+            <div className="text-center">
+              <h1 className="text-2xl font-extrabold tracking-tight">
+                <span className={isDark ? 'text-white' : 'text-gray-900'}>ASSIGNMENT</span>
+                <span className="text-pink-600">.ALUMNI</span>
+              </h1>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mt-0.5">
+                Premium Academic Network
+              </p>
+            </div>
           </div>
-          <h2 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            Activate Your Profile
-          </h2>
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Welcome to Assignment Alumni! Select a tier and submit your deposit slip to unlock your workspace.
+            Select a tier and submit your deposit slip to unlock your workspace.
           </p>
         </div>
 
