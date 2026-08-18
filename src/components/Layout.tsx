@@ -49,15 +49,20 @@ export function Layout() {
         <div className="max-w-6xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <a href="/home" className="flex items-center gap-2">
-                <div className={`w-9 h-9 rounded-xl ${isDark ? 'bg-neon-pink/20' : 'bg-neon-pink/10'} flex items-center justify-center`}>
-                  <span className={`text-lg font-bold text-neon-pink`}>A</span>
-                </div>
-                <div className="flex items-center gap-1 font-semibold text-lg">
-                  <span className={isDark ? 'text-white' : 'text-gray-900'}>assignment</span>
-                  <span className="text-neon-pink">.alumni</span>
-                </div>
-              </a>
+     <a href="/home" className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-pink-200">
+              A
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1 font-extrabold text-base tracking-tight">
+                <span className={isDark ? 'text-white' : 'text-gray-900'}>ASSIGNMENT</span>
+                <span className="text-pink-600">.ALUMNI</span>
+              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 -mt-1">
+                Premium Academic Network
+              </span>
+            </div>
+          </a>
 
               {/* Desktop tab nav */}
               <div className={`hidden md:flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100 border border-gray-200'}`}>
